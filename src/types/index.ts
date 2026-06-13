@@ -66,6 +66,7 @@ export interface RankingEntry {
 
 export interface Settings {
   language: 'en' | 'es'
+  darkMode: boolean
 }
 
 export type ModalId = 'help' | 'settings' | 'menu' | 'completion' | 'stats' | 'rankings' | null

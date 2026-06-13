@@ -7,7 +7,7 @@ interface Props {
   fullScreen?: boolean
 }
 
-export default function Modal({ open, onClose, children, fullScreen }: Props) {
+export default function Modal({ open, onClose, children, fullScreen: _fullScreen }: Props) {
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
@@ -25,15 +25,10 @@ export default function Modal({ open, onClose, children, fullScreen }: Props) {
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" />
       {/* Content */}
       <div
-        className={[
-          'relative bg-white shadow-2xl z-10 w-full animate-slide-up',
-          fullScreen
-            ? 'rounded-t-3xl sm:rounded-2xl sm:max-w-sm sm:mx-4'
-            : 'rounded-t-3xl sm:rounded-2xl sm:max-w-sm sm:mx-4',
-        ].join(' ')}
+        className="relative bg-white dark:bg-slate-800 shadow-2xl z-10 w-full animate-slide-up rounded-t-3xl sm:rounded-2xl sm:max-w-sm sm:mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         {children}

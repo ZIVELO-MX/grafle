@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Header from './components/Header'
 import PuzzleNav from './components/PuzzleNav'
 import Graph from './components/Graph'
 import ImpossibleButton from './components/ImpossibleButton'
 import HelpModal from './components/modals/HelpModal'
-import SettingsModal from './components/modals/SettingsModal'
 import MenuDrawer from './components/modals/MenuDrawer'
 import CompletionModal from './components/modals/CompletionModal'
 import StatsModal from './components/modals/StatsModal'
@@ -59,12 +58,19 @@ export default function App() {
 
   const won = state.status === 'won' || state.status === 'impossible-correct'
 
+  // Fix: track whether completion modal has been shown for this win
+  // so closing it doesn't cause it to reopen immediately.
+  const completionShownRef = useRef(false)
   useEffect(() => {
-    if (won && modal === null) {
-      const timer = setTimeout(() => setModal('completion'), 800)
-      return () => clearTimeout(timer)
+    if (!won) {
+      completionShownRef.current = false
+      return
     }
-  }, [won, modal])
+    if (completionShownRef.current) return
+    completionShownRef.current = true
+    const timer = setTimeout(() => setModal('completion'), 800)
+    return () => clearTimeout(timer)
+  }, [won])
 
   const t = translations[settings.language]
 
@@ -79,10 +85,17 @@ export default function App() {
     ? Math.floor((Date.now() - state.startTime) / 1000)
     : elapsedSeconds
 
+  const dark = settings.darkMode
+
   return (
     <I18nContext.Provider value={t}>
-      <div className="min-h-dvh flex flex-col bg-[#f8f7f5]">
-        <Header onOpen={openModal} />
+      <div className={`min-h-dvh flex flex-col bg-[#f8f7f5] dark:bg-slate-900 transition-colors duration-300 ${dark ? 'dark' : ''}`}>
+        <Header
+          onOpen={openModal}
+          darkMode={dark}
+          onToggleDark={() => handleSettingsSave({ ...settings, darkMode: !settings.darkMode })}
+          onToggleLang={() => handleSettingsSave({ ...settings, language: settings.language === 'en' ? 'es' : 'en' })}
+        />
         <PuzzleNav
           puzzleNumber={puzzleNumber}
           onPrev={() => setPuzzleNumber((n) => Math.max(1, n - 1))}
@@ -90,7 +103,7 @@ export default function App() {
         />
 
         {/* Difficulty & Timer bar */}
-        <div className="flex items-center justify-between px-4 py-1 text-xs text-slate-400">
+        <div className="flex items-center justify-between px-4 py-1 text-xs text-slate-400 dark:text-slate-500">
           <DifficultyBadge difficulty={puzzle.difficulty} lang={settings.language} />
           <span className="font-mono tabular-nums">
             {state.status !== 'idle' ? formatTime(liveElapsed) : '00:00'}
@@ -99,8 +112,8 @@ export default function App() {
 
         {/* Graph area */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-2 min-h-0">
-          <div className="w-full max-w-sm aspect-square bg-white rounded-3xl shadow-sm p-2">
-            <Graph puzzle={puzzle} state={state} onVertexClick={handleVertexClick} />
+          <div className="w-full max-w-sm aspect-square bg-white dark:bg-slate-800 rounded-3xl shadow-sm p-2">
+            <Graph puzzle={puzzle} state={state} onVertexClick={handleVertexClick} darkMode={dark} />
           </div>
         </div>
 
@@ -111,7 +124,7 @@ export default function App() {
               'text-xs transition-colors duration-300',
               state.status === 'impossible-wrong'
                 ? 'text-amber-600 font-medium'
-                : 'text-slate-400',
+                : 'text-slate-400 dark:text-slate-500',
             ].join(' ')}
           >
             {gameHint}
@@ -130,12 +143,6 @@ export default function App() {
 
       {/* Modals */}
       <HelpModal open={modal === 'help'} onClose={closeModal} />
-      <SettingsModal
-        open={modal === 'settings'}
-        onClose={closeModal}
-        settings={settings}
-        onSave={handleSettingsSave}
-      />
       <MenuDrawer open={modal === 'menu'} onClose={closeModal} />
       <CompletionModal
         open={modal === 'completion'}
