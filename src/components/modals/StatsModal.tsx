@@ -33,21 +33,21 @@ export default function StatsModal({ open, onClose }: Props) {
   return (
     <Modal open={open} onClose={onClose}>
       <div className="p-6">
-        <h2 className="text-lg font-bold text-slate-900 mb-5">{t.statistics}</h2>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-5">{t.statistics}</h2>
         <div className="space-y-0 mb-6">
           {rows.map(({ label, value }, i) => (
             <div
               key={i}
-              className="flex justify-between items-center py-3 border-b border-slate-100 last:border-0"
+              className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-700 last:border-0"
             >
-              <span className="text-sm text-slate-600">{label}</span>
-              <span className="text-sm font-bold text-slate-900">{value}</span>
+              <span className="text-sm text-slate-600 dark:text-slate-400">{label}</span>
+              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{value}</span>
             </div>
           ))}
         </div>
         <button
           onClick={onClose}
-          className="w-full py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-200 transition-colors"
+          className="w-full py-3 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-semibold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
         >
           {t.close}
         </button>

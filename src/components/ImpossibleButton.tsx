@@ -19,20 +19,24 @@ export default function ImpossibleButton({ status, onImpossible, onRestart }: Pr
         className={[
           'px-8 py-3 rounded-2xl font-semibold tracking-wide text-sm transition-all duration-200',
           done
-            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            : 'bg-slate-900 text-white hover:bg-slate-700 active:scale-95 shadow-sm',
+            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
+            : 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-white active:scale-95 shadow-sm',
         ].join(' ')}
       >
         {t.impossible}
       </button>
-      {(status === 'playing' || status === 'idle') && (
-        <button
-          onClick={onRestart}
-          className="text-xs text-slate-400 hover:text-slate-600 transition-colors underline underline-offset-2"
-        >
-          {t.restart}
-        </button>
-      )}
+      <button
+        onClick={!done ? onRestart : undefined}
+        disabled={done}
+        className={[
+          'text-xs transition-colors underline underline-offset-2',
+          done
+            ? 'text-slate-300 dark:text-slate-700 cursor-not-allowed'
+            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300',
+        ].join(' ')}
+      >
+        {t.restart}
+      </button>
     </div>
   )
 }

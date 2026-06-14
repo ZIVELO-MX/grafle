@@ -84,7 +84,7 @@ export function getResultForDate(date: string): DailyResult | null {
   return results.find((r) => r.date === date) ?? null
 }
 
-const defaultSettings: Settings = { language: 'en' }
+const defaultSettings: Settings = { language: 'en', darkMode: false }
 
 export function loadSettings(): Settings {
   return load<Settings>(KEYS.settings, defaultSettings)

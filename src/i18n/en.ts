@@ -4,7 +4,8 @@ const en = {
   daily_puzzle: 'Daily Puzzle',
   impossible: 'Impossible',
   restart: 'Restart',
-  share: 'Share Result',
+  share: 'Share',
+  copy: 'Copy Result',
   copied: 'Copied!',
 
   // Game messages
