@@ -4,6 +4,7 @@ import PuzzleNav from './components/PuzzleNav'
 import Graph from './components/Graph'
 import ImpossibleButton from './components/ImpossibleButton'
 import HelpModal from './components/modals/HelpModal'
+import SettingsModal from './components/modals/SettingsModal'
 import MenuDrawer from './components/modals/MenuDrawer'
 import CompletionModal from './components/modals/CompletionModal'
 import StatsModal from './components/modals/StatsModal'
@@ -94,7 +95,6 @@ export default function App() {
           onOpen={openModal}
           darkMode={dark}
           onToggleDark={() => handleSettingsSave({ ...settings, darkMode: !settings.darkMode })}
-          onToggleLang={() => handleSettingsSave({ ...settings, language: settings.language === 'en' ? 'es' : 'en' })}
         />
         <PuzzleNav
           puzzleNumber={puzzleNumber}
@@ -143,6 +143,12 @@ export default function App() {
 
       {/* Modals */}
       <HelpModal open={modal === 'help'} onClose={closeModal} />
+      <SettingsModal
+        open={modal === 'settings'}
+        onClose={closeModal}
+        settings={settings}
+        onSave={handleSettingsSave}
+      />
       <MenuDrawer open={modal === 'menu'} onClose={closeModal} />
       <CompletionModal
         open={modal === 'completion'}

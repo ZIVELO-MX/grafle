@@ -5,10 +5,9 @@ interface Props {
   onOpen: (modal: ModalId) => void
   darkMode: boolean
   onToggleDark: () => void
-  onToggleLang: () => void
 }
 
-export default function Header({ onOpen, darkMode, onToggleDark, onToggleLang }: Props) {
+export default function Header({ onOpen, darkMode, onToggleDark }: Props) {
   const t = useT()
   return (
     <header className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 transition-colors duration-300">
@@ -19,7 +18,7 @@ export default function Header({ onOpen, darkMode, onToggleDark, onToggleLang }:
         <IconBtn label="Help" onClick={() => onOpen('help')}>
           <span className="text-base font-semibold leading-none">?</span>
         </IconBtn>
-        <IconBtn label="Toggle language" onClick={onToggleLang}>
+        <IconBtn label="Language settings" onClick={() => onOpen('settings')}>
           <BookIcon />
         </IconBtn>
         <IconBtn label="Toggle dark mode" onClick={onToggleDark}>

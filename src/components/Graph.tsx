@@ -28,13 +28,13 @@ function vertexStroke(id: number, state: GameState, isReachable: boolean, dark: 
   if (id === state.currentVertexId) return '#2563eb'
   if (id === state.invalidVertexId) return '#ef4444'
   if (state.path.includes(id)) return '#60a5fa'
-  if (isReachable) return '#10b981'
+  if (isReachable) return dark ? '#4ade80' : '#16a34a'
   return dark ? '#4b5563' : '#9ca3af'
 }
 
 function vertexStrokeWidth(id: number, state: GameState, isReachable: boolean): number {
   if (id === state.currentVertexId || id === state.invalidVertexId) return 3
-  if (isReachable) return 2.5
+  if (isReachable) return 4
   return 2
 }
 
@@ -172,15 +172,24 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
               {/* Hit area */}
               <circle cx={v.x} cy={v.y} r={HIT_R} fill="transparent" />
 
-              {/* Reachable hint ring */}
+              {/* Reachable: outer pulsing glow + inner solid ring */}
               {isReachable && (
-                <circle
-                  cx={v.x}
-                  cy={v.y}
-                  r={VERTEX_R + 7}
-                  fill="#d1fae5"
-                  opacity={0.5}
-                />
+                <>
+                  <circle
+                    cx={v.x} cy={v.y}
+                    r={VERTEX_R + 16}
+                    fill={darkMode ? '#14532d' : '#86efac'}
+                    opacity={0.55}
+                    className="animate-pulse"
+                  />
+                  <circle
+                    cx={v.x} cy={v.y}
+                    r={VERTEX_R + 8}
+                    fill={darkMode ? '#166534' : '#dcfce7'}
+                    stroke={darkMode ? '#4ade80' : '#16a34a'}
+                    strokeWidth={2.5}
+                  />
+                </>
               )}
 
               {/* Glow for current vertex */}
