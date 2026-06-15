@@ -165,7 +165,6 @@ export default function App() {
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-2 min-h-0">
           <div className="w-full max-w-sm aspect-square bg-white dark:bg-slate-800 rounded-3xl shadow-sm p-2">
             {!isToday && !pastStarted ? (
-              // Past puzzle — show Start screen before revealing the graph
               <StartScreen
                 puzzleNumber={puzzleNumber}
                 difficulty={puzzle.difficulty}
@@ -173,37 +172,28 @@ export default function App() {
                 isPast
               />
             ) : !isToday && isPastCompleted ? (
-              // Past puzzle already solved — show completed graph
               <Graph
                 puzzle={puzzle}
                 state={displayState!}
                 onVertexClick={() => {}}
                 darkMode={dark}
               />
-            ) : !isToday ? (
-              // Past puzzle not solved — show interactive graph
-              <Graph
-                puzzle={puzzle}
-                state={effectiveState}
-                onVertexClick={handleVertexClick}
-                darkMode={dark}
-              />
+            ) : lost ? (
+              <SolutionViewer puzzle={puzzle} darkMode={dark} />
             ) : state.status === 'not-started' ? (
               <StartScreen
                 puzzleNumber={puzzleNumber}
                 difficulty={puzzle.difficulty}
                 onStart={handleStart}
               />
-            ) : lost ? (
-              <SolutionViewer puzzle={puzzle} darkMode={dark} />
             ) : (
-              <Graph puzzle={puzzle} state={state} onVertexClick={handleVertexClick} darkMode={dark} />
+              <Graph puzzle={puzzle} state={effectiveState} onVertexClick={handleVertexClick} darkMode={dark} />
             )}
           </div>
         </div>
 
         {/* Hint */}
-        {isToday && gameStarted && !lost && (
+        {gameStarted && !lost && !isPastCompleted && (
           <div className="text-center px-4 py-2 min-h-[2rem]">
             <p
               className={[
@@ -219,7 +209,7 @@ export default function App() {
         )}
 
         {/* Game over message */}
-        {isToday && lost && (
+        {lost && (
           <div className="text-center px-4 py-2 min-h-[2rem]">
             <p className="text-xs text-rose-500 font-medium">{t.game_over}</p>
           </div>
@@ -235,7 +225,7 @@ export default function App() {
         )}
 
         {/* Action */}
-        {isToday && gameStarted && !lost && (
+        {gameStarted && !lost && !isPastCompleted && (
           <div className="flex justify-center pb-8 pt-2">
             <ImpossibleButton
               status={state.status}
