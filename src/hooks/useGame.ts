@@ -83,12 +83,13 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
   }, [state, isToday, puzzleNumber])
 
   const handleStart = useCallback(() => {
+    const now = Date.now()
     setState((prev) => {
       if (prev.status !== 'not-started') return prev
-      return { ...prev, status: 'idle' }
+      return { ...prev, status: 'idle', startTime: now }
     })
     // Record when Start was pressed to guard against tap-through
-    startedAtRef.current = Date.now()
+    startedAtRef.current = now
   }, [])
 
   const handleVertexClick = useCallback(

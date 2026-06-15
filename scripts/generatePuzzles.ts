@@ -134,9 +134,8 @@ function buildPuzzle(cand: Candidate, nextId: number): GeneratedPuzzle | null {
 function allCandidates(): Candidate[] {
   const list: Candidate[] = []
 
-  // ── PATH GRAPHS ──
+  // ── PATH GRAPHS (arc layouts only — horizontal layouts are visually boring) ──
   for (const n of [4, 5, 6, 7, 8]) {
-    list.push({ raw: pathGraph(n), pts: horizontalLayout(n), label: `path-${n}-horiz` })
     list.push({ raw: pathGraph(n), pts: circularLayout(n, 200, 200, 155), label: `path-${n}-arc` })
   }
 
@@ -149,16 +148,14 @@ function allCandidates(): Candidate[] {
   list.push({ raw: cycleGraph(6), pts: circularLayout(6, 200, 200, 155, 0), label: 'cycle-6-rot30' })
 
   // ── THETA GRAPHS ──
-  // Easy: sum k1+k2+k3 ≤ 9 → vertices ≤ 8
-  // Hard: sum ≥ 10 → vertices ≥ 9
+  // Exclude any variant where ki=1: those create a direct horizontal edge between the two
+  // poles at y=200, which visually passes through any middle-path nodes (also at y=200).
   const thetaVariants: [number, number, number][] = [
-    // Easy
-    [1, 1, 2], [1, 2, 2], [1, 2, 3], [1, 1, 4],
-    [2, 2, 2], [1, 3, 3], [2, 2, 3], [2, 3, 3], [1, 2, 4],
-    [1, 3, 4], [2, 2, 4], [1, 4, 4], [2, 3, 4], [3, 3, 3],
-    // Hard (sum ≥ 10)
-    [2, 4, 4], [3, 3, 4], [2, 3, 5], [1, 4, 5], [2, 4, 5],
-    [3, 4, 4], [1, 5, 5], [3, 3, 5], [2, 5, 5], [4, 4, 4],
+    // Easy (all ki ≥ 2, sum ≤ 9)
+    [2, 2, 2], [2, 2, 3], [2, 3, 3], [2, 2, 4], [2, 3, 4], [3, 3, 3],
+    // Hard (all ki ≥ 2, sum ≥ 10)
+    [2, 4, 4], [3, 3, 4], [2, 3, 5], [2, 4, 5],
+    [3, 4, 4], [3, 3, 5], [2, 5, 5], [4, 4, 4],
     [3, 4, 5], [4, 4, 5], [3, 5, 5],
   ]
   for (const [k1, k2, k3] of thetaVariants) {

@@ -58,9 +58,12 @@ export default function App() {
   const [modal, setModal] = useState<ModalId>(null)
   const [puzzleNumber, setPuzzleNumber] = useState(getCurrentPuzzleNumber)
   const [showToast, setShowToast] = useState(false)
+  const [pastStarted, setPastStarted] = useState(false)
 
   const todayNumber = getCurrentPuzzleNumber()
   const isToday = puzzleNumber === todayNumber
+
+  useEffect(() => { setPastStarted(false) }, [puzzleNumber])
 
   const puzzleEntry = isToday
     ? { puzzle: getPuzzleForDate(), date: new Date() }
@@ -76,7 +79,10 @@ export default function App() {
   const { state, handleVertexClick, handleImpossible, restart, handleStart, elapsedSeconds, score } =
     useGame(puzzle, puzzleNumber, isToday)
 
-  useTick(state.status === 'playing')
+  // Tick whenever the clock is running: from Start press until the game ends
+  const isTimerRunning = state.startTime !== null &&
+    state.status !== 'won' && state.status !== 'impossible-correct' && state.status !== 'lost'
+  useTick(isTimerRunning)
 
   const handleSettingsSave = useCallback((s: Settings) => {
     setSettings(s)
@@ -113,7 +119,7 @@ export default function App() {
   })()
 
   const liveElapsed =
-    state.startTime && state.status === 'playing'
+    state.startTime && !won && !lost
       ? Math.floor((Date.now() - state.startTime) / 1000)
       : elapsedSeconds
 
@@ -151,16 +157,22 @@ export default function App() {
         <div className="flex items-center justify-between px-4 py-1 text-xs text-slate-400 dark:text-slate-500">
           <DifficultyBadge difficulty={puzzle.difficulty} lang={settings.language} />
           <span className="font-mono tabular-nums">
-            {isToday && state.status !== 'idle' && state.status !== 'not-started'
-              ? formatTime(liveElapsed)
-              : '00:00'}
+            {isToday && state.startTime !== null ? formatTime(liveElapsed) : '00:00'}
           </span>
         </div>
 
         {/* Graph area */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-2 min-h-0">
           <div className="w-full max-w-sm aspect-square bg-white dark:bg-slate-800 rounded-3xl shadow-sm p-2">
-            {isPastCompleted ? (
+            {!isToday && !pastStarted ? (
+              // Past puzzle — show Start screen before revealing the graph
+              <StartScreen
+                puzzleNumber={puzzleNumber}
+                difficulty={puzzle.difficulty}
+                onStart={() => setPastStarted(true)}
+                isPast
+              />
+            ) : !isToday && isPastCompleted ? (
               // Past puzzle already solved — show completed graph
               <Graph
                 puzzle={puzzle}
@@ -169,7 +181,7 @@ export default function App() {
                 darkMode={dark}
               />
             ) : !isToday ? (
-              // Past puzzle not solved — just show the graph interactively
+              // Past puzzle not solved — show interactive graph
               <Graph
                 puzzle={puzzle}
                 state={effectiveState}
