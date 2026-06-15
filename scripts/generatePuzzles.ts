@@ -1,7 +1,13 @@
 /**
- * Grafle Puzzle Generator
+ * Grafle Puzzle Generator v2 — Real Graph Engine
  * Run: npm run generate
- * Output: src/data/generatedPuzzles.ts
+ * Output: src/data/puzzles.ts
+ *
+ * Generates puzzles from:
+ *   - Classic named graphs (Petersen, Chvátal, Wagner, etc.)
+ *   - Random graph models (Erdős–Rényi, Watts–Strogatz, Barabási–Albert)
+ *   - Graph operations (subdivision, chord addition, products)
+ *   - Classical geometric shapes (cycles, theta, book, friendship, etc.)
  */
 
 import { writeFileSync } from 'fs'
@@ -12,18 +18,25 @@ import { findEulerianPath } from './lib/eulerianSolver.js'
 import {
   pathGraph, cycleGraph, thetaGraph, lollipopGraph, wheelGraphFixed,
   ladderGraph, prismGraph, doubleStarGraph, bookGraph, friendshipGraph,
-  petersenLike, doubleWheelGraph, gridGraph, starGraph, RawGraph,
+  petersenLike, doubleWheelGraph, gridGraph, starGraph,
 } from './lib/shapes.js'
 import {
-  circularLayout, hubAndRim, horizontalLayout, doubleRowLayout,
+  circularLayout, hubAndRim, doubleRowLayout,
   thetaLayout, lollipopLayout, bookLayout, friendshipLayout,
   petersenLayout, doubleWheelLayout, gridLayout, customLayout,
   starLayout,
 } from './lib/layout.js'
+import { forceDirectedLayout } from './lib/forceLayout.js'
+import { erdosRenyi, wattsStrogatz, barabasiAlbert, randomRegular, randomBipartite } from './lib/randomGraphs.js'
+import {
+  petersenGraph, petersenStar, completeGraph, completeBipartiteGraph, cubeGraph,
+  octahedronGraph, utilityGraph, wagnerGraph, chvatalGraph, herschelGraph,
+  franklinGraph, mobiusKantorGraph, pappusGraph, desarguesGraph,
+  grotzschGraph, folkmanGraph, coxeterGraph, hypercubeGraph, robertsonGraph,
+} from './lib/classicGraphs.js'
+import { addRandomChord, vertexSplit, cartesianProduct, graphJoin } from './lib/graphOperations.js'
 import { graphSignature, isDuplicate } from './lib/isomorphism.js'
 import { scoreVisualQuality } from './lib/quality.js'
-
-// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface Vertex { id: number; x: number; y: number }
 interface Edge { id: number; from: number; to: number }
@@ -38,9 +51,15 @@ interface GeneratedPuzzle {
   edges: Edge[]
   officialSolution?: number[]
   _qualityScore?: number
+  _label?: string
 }
 
-// ─── Graph utilities (local copies — avoid import issues with src/) ──────────
+interface RawGraph {
+  vertexCount: number
+  edges: { from: number; to: number }[]
+}
+
+interface Pt { x: number; y: number }
 
 function getVertexDegrees(vertexIds: number[], edges: { from: number; to: number }[]) {
   const deg = new Map<number, number>()
@@ -80,28 +99,55 @@ function isSolvable(vertexIds: number[], edges: { from: number; to: number }[]):
   return oddCount === 0 || oddCount === 2
 }
 
-// ─── Candidate builder ───────────────────────────────────────────────────────
+function normalizeGraph(raw: RawGraph): RawGraph {
+  const usedVertices = new Set<number>()
+  for (const e of raw.edges) {
+    usedVertices.add(e.from)
+    usedVertices.add(e.to)
+  }
+  const maxVertex = Math.max(...usedVertices, 0)
+  if (maxVertex > raw.vertexCount || usedVertices.size !== raw.vertexCount) {
+    const sorted = [...usedVertices].sort((a, b) => a - b)
+    const remap = new Map<number, number>()
+    sorted.forEach((v, i) => remap.set(v, i + 1))
+    return {
+      vertexCount: sorted.length,
+      edges: raw.edges.map((e) => ({
+        from: remap.get(e.from)!,
+        to: remap.get(e.to)!,
+      })),
+    }
+  }
+  return raw
+}
+
+function alwaysNormalize(raw: RawGraph): RawGraph {
+  const n = raw.vertexCount
+  const edges = raw.edges.filter((e) => e.from >= 1 && e.from <= n && e.to >= 1 && e.to <= n)
+  const used = new Set<number>()
+  for (const e of edges) { used.add(e.from); used.add(e.to) }
+  if (used.size !== n || edges.length !== raw.edges.length) {
+    return normalizeGraph({ vertexCount: n, edges })
+  }
+  return { vertexCount: n, edges }
+}
 
 interface Candidate {
   raw: RawGraph
-  pts: { x: number; y: number }[]
+  pts: Pt[]
   label: string
 }
 
 function buildPuzzle(cand: Candidate, nextId: number): GeneratedPuzzle | null {
   const { raw, pts } = cand
   const n = raw.vertexCount
-
   if (pts.length !== n) return null
 
   const vertices: Vertex[] = pts.map((p, i) => ({ id: i + 1, x: p.x, y: p.y }))
   const edges: Edge[] = raw.edges.map((e, i) => ({ id: i + 1, from: e.from, to: e.to }))
   const vertexIds = vertices.map((v) => v.id)
-
   const solvable = isSolvable(vertexIds, raw.edges)
 
-  // Reject solvable puzzles where no vertex has degree ≥ 3: these are pure paths or
-  // pure cycles — the player has no real choice at any step (only one possible traversal).
   if (solvable) {
     const deg = getVertexDegrees(vertexIds, raw.edges)
     const maxDegree = Math.max(...deg.values())
@@ -114,14 +160,12 @@ function buildPuzzle(cand: Candidate, nextId: number): GeneratedPuzzle | null {
       vertexIds,
       edges.map((e) => ({ id: e.id, from: e.from, to: e.to }))
     )
-    if (!sol) return null // isSolvable said true but solver returned null → bad graph
+    if (!sol) return null
     officialSolution = sol
   }
 
-  // Difficulty: easy ≤ 8 vertices AND ≤ 12 edges; otherwise hard
-  const difficulty: Difficulty = n <= 8 && edges.length <= 12 ? 'easy' : 'hard'
+  const difficulty: Difficulty = n <= 10 && edges.length <= 15 ? 'easy' : 'hard'
 
-  // Quality score uses 0-based vertex indices via mapping
   const qualityVertices = vertices.map((v) => ({ x: v.x, y: v.y }))
   const qualityEdges = edges.map((e) => ({ from: e.from, to: e.to }))
   const qualityScore = scoreVisualQuality(qualityVertices, qualityEdges)
@@ -134,364 +178,307 @@ function buildPuzzle(cand: Candidate, nextId: number): GeneratedPuzzle | null {
     edges,
     officialSolution,
     _qualityScore: qualityScore,
+    _label: cand.label,
   }
 }
 
-// ─── Candidate pool definition ───────────────────────────────────────────────
+let _seedCounter = 1
+function nextSeed(): number {
+  return 1000 + _seedCounter++
+}
+
+function forceLayout(raw: RawGraph, label: string, seed = nextSeed()): Candidate {
+  const norm = alwaysNormalize(raw)
+  const nv = norm.vertexCount
+  const iters = nv > 15 ? 120 : nv > 10 ? 100 : 80
+  const pts = forceDirectedLayout(nv, norm.edges, 400, 400, iters, seed)
+  return { raw: norm, pts, label }
+}
+
+function makeCand(raw: RawGraph, pts: Pt[], label: string): Candidate {
+  return { raw: alwaysNormalize(raw), pts, label }
+}
 
 function allCandidates(): Candidate[] {
   const list: Candidate[] = []
 
-  // ── PATH GRAPHS (arc layouts only — horizontal layouts are visually boring) ──
-  for (const n of [4, 5, 6, 7, 8]) {
-    list.push({ raw: pathGraph(n), pts: circularLayout(n, 200, 200, 155), label: `path-${n}-arc` })
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 1. CLASSIC NAMED GRAPHS (Graph Theory Icons)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  list.push(forceLayout(petersenGraph(), 'petersen', 2001))
+
+  list.push(forceLayout(petersenStar(), 'petersen-star', 2002))
+
+  list.push(makeCand(completeGraph(5), circularLayout(5), 'k5'))
+  list.push(makeCand(completeGraph(6), circularLayout(6), 'k6'))
+  list.push(makeCand(completeBipartiteGraph(3, 3), circularLayout(6), 'k33-utility'))
+
+  list.push(makeCand(completeBipartiteGraph(4, 4), circularLayout(8), 'k44'))
+
+  list.push(forceLayout(cubeGraph(), 'cube-q3', 2003))
+
+  list.push(forceLayout(octahedronGraph(), 'octahedron', 2004))
+
+  list.push(forceLayout(wagnerGraph(), 'wagner', 2005))
+
+  list.push(forceLayout(chvatalGraph(), 'chvatal', 2006))
+
+  list.push(forceLayout(herschelGraph(), 'herschel', 2007))
+
+  list.push(forceLayout(franklinGraph(), 'franklin', 2008))
+
+  list.push(forceLayout(mobiusKantorGraph(), 'mobius-kantor', 2009))
+
+  list.push(forceLayout(pappusGraph(), 'pappus', 2010))
+
+  list.push(forceLayout(desarguesGraph(), 'desargues', 2011))
+
+  list.push(forceLayout(grotzschGraph(), 'grotzsch', 2012))
+
+  list.push(forceLayout(folkmanGraph(), 'folkman', 2013))
+
+  list.push(forceLayout(robertsonGraph(), 'robertson', 2014))
+
+  const h4 = hypercubeGraph(4)!
+  list.push(forceLayout(h4, 'hypercube-4d', 2015))
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 2. RANDOM GRAPH MODELS (multiple seeds for variety)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const randomSeeds = [42, 73, 101, 137, 199, 256, 314, 521, 666, 777, 888, 999, 1234, 1337, 3579, 5001]
+
+  for (const seed of randomSeeds) {
+    const n = 6 + (seed % 5)
+    const maxE = (n * (n - 1)) / 2
+    const m = n + (seed % (maxE - n))
+
+    const er = erdosRenyi(n, m, seed)
+    if (er) list.push(forceLayout(er, `erdos-renyi-${n}-${m}-s${seed}`, seed))
   }
 
-  // ── CYCLE GRAPHS ──
-  for (const n of [4, 5, 6, 7, 8]) {
-    list.push({ raw: cycleGraph(n), pts: circularLayout(n), label: `cycle-${n}` })
-  }
-  // Cycles with rotated start angle
-  list.push({ raw: cycleGraph(4), pts: circularLayout(4, 200, 200, 150, 0), label: 'cycle-4-rot45' })
-  list.push({ raw: cycleGraph(6), pts: circularLayout(6, 200, 200, 155, 0), label: 'cycle-6-rot30' })
+  for (const seed of randomSeeds.slice(0, 12)) {
+    const n = 6 + (seed % 6)
+    const k = 2 * (1 + (seed % 4))
+    const beta = 0.1 + (seed % 10) * 0.08
 
-  // ── THETA GRAPHS ──
-  // Exclude any variant where ki=1: those create a direct horizontal edge between the two
-  // poles at y=200, which visually passes through any middle-path nodes (also at y=200).
+    const ws = wattsStrogatz(n, k, beta, seed)
+    if (ws) list.push(forceLayout(ws, `watts-strogatz-${n}-k${k}-b${beta.toFixed(2)}-s${seed}`, seed))
+  }
+
+  for (const seed of randomSeeds.slice(0, 10)) {
+    const n = 8 + (seed % 7)
+    const m0 = 3 + (seed % 3)
+    const m = 2 + (seed % 3)
+
+    const ba = barabasiAlbert(n, m0, m, seed)
+    if (ba) list.push(forceLayout(ba, `barabasi-${n}-m0${m0}-m${m}-s${seed}`, seed))
+  }
+
+  for (const seed of randomSeeds.slice(0, 8)) {
+    const n = 6 + (seed % 5) * 2
+    const d = 3 + (seed % 2)
+    const rr = randomRegular(n, d, seed)
+    if (rr) list.push(forceLayout(rr, `regular-${n}-d${d}-s${seed}`, seed))
+  }
+
+  for (const seed of randomSeeds.slice(0, 8)) {
+    const n1 = 3 + (seed % 4)
+    const n2 = 3 + ((seed * 7) % 4)
+    const p = 0.4 + (seed % 5) * 0.1
+    const rb = randomBipartite(n1, n2, p, seed)
+    if (rb) list.push(forceLayout(rb, `bipartite-${n1}x${n2}-p${p.toFixed(1)}-s${seed}`, seed))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 3. GRAPH OPERATIONS ON CLASSIC GRAPHS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const baseGraphs: [RawGraph, string][] = [
+    [cubeGraph(), 'cube'],
+    [completeGraph(4), 'k4'],
+    [completeBipartiteGraph(3, 3), 'k33'],
+    [petersenGraph(), 'petersen'],
+    [wagnerGraph(), 'wagner'],
+    [octahedronGraph(), 'octa'],
+  ]
+
+  for (const [base, baseName] of baseGraphs) {
+    for (let i = 0; i < 3; i++) {
+      const chord = addRandomChord(base, 5000 + i)
+      if (chord) list.push(forceLayout(chord, `${baseName}-chord-${i}`, 6000 + i))
+    }
+    const split = vertexSplit(base, 7000)
+    if (split) list.push(forceLayout(split, `${baseName}-split`, 7001))
+  }
+
+  const smallGraphs: [RawGraph, string][] = [
+    [completeGraph(3), 'k3'],
+    [cycleGraph(4), 'c4'],
+  ]
+  for (const [g1, n1] of smallGraphs) {
+    for (const [g2, n2] of smallGraphs) {
+      const prod = cartesianProduct(g1, g2)
+      if (prod.vertexCount <= 25) {
+        list.push(forceLayout(prod, `product-${n1}x${n2}`, 8000))
+      }
+    }
+  }
+
+  const joinA = completeGraph(3)
+  const joinB = cycleGraph(4)
+  const joinG = graphJoin(joinA, joinB)
+  list.push(forceLayout(joinG, 'k3-join-c4', 9001))
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 4. EXISTING SHAPE CANDIDATES (refined selection)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  for (const n of [4, 5, 6, 7, 8]) {
+    list.push(makeCand(pathGraph(n), circularLayout(n, 200, 200, 155), `path-${n}-arc`))
+  }
+  for (const n of [4, 5, 6, 7, 8, 9, 10]) {
+    list.push(makeCand(cycleGraph(n), circularLayout(n), `cycle-${n}`))
+  }
+
   const thetaVariants: [number, number, number][] = [
-    // Easy (all ki ≥ 2, sum ≤ 9)
     [2, 2, 2], [2, 2, 3], [2, 3, 3], [2, 2, 4], [2, 3, 4], [3, 3, 3],
-    // Hard (all ki ≥ 2, sum ≥ 10)
     [2, 4, 4], [3, 3, 4], [2, 3, 5], [2, 4, 5],
     [3, 4, 4], [3, 3, 5], [2, 5, 5], [4, 4, 4],
     [3, 4, 5], [4, 4, 5], [3, 5, 5],
   ]
   for (const [k1, k2, k3] of thetaVariants) {
-    list.push({
-      raw: thetaGraph(k1, k2, k3),
-      pts: thetaLayout(k1, k2, k3),
-      label: `theta-${k1}-${k2}-${k3}`,
-    })
+    list.push(makeCand(thetaGraph(k1, k2, k3), thetaLayout(k1, k2, k3), `theta-${k1}-${k2}-${k3}`))
   }
 
-  // ── LOLLIPOP GRAPHS ──
-  for (const [n, k] of [[3, 2], [4, 2], [4, 3], [5, 2], [3, 3], [5, 3], [6, 2]] as [number,number][]) {
-    list.push({
-      raw: lollipopGraph(n, k),
-      pts: lollipopLayout(n, k),
-      label: `lollipop-${n}-${k}`,
-    })
+  for (const [n, k] of [[3, 2], [4, 2], [4, 3], [5, 2], [3, 3], [5, 3], [6, 2]] as [number, number][]) {
+    list.push(makeCand(lollipopGraph(n, k), lollipopLayout(n, k), `lollipop-${n}-${k}`))
   }
 
-  // ── WHEEL GRAPHS ──
   for (const n of [4, 6, 8, 10, 12]) {
-    list.push({ raw: wheelGraphFixed(n), pts: hubAndRim(n), label: `wheel-${n}` })
+    list.push(makeCand(wheelGraphFixed(n), hubAndRim(n), `wheel-${n}`))
   }
 
-  // ── LADDER GRAPHS ──
   for (const n of [2, 3, 4, 5, 6]) {
-    list.push({ raw: ladderGraph(n), pts: doubleRowLayout(n), label: `ladder-${n}` })
+    list.push(makeCand(ladderGraph(n), doubleRowLayout(n), `ladder-${n}`))
   }
 
-  // ── BOOK GRAPHS ──
-  // book(k): k=even → Eulerian circuit, k=odd → Eulerian path
-  // v = k+2, e = 2k+1. Hard when v>8 (k>6) or e>12 (k>5).
   for (const k of [2, 3, 4, 5, 6, 7, 8, 9]) {
-    list.push({ raw: bookGraph(k), pts: bookLayout(k), label: `book-${k}` })
+    list.push(makeCand(bookGraph(k), bookLayout(k), `book-${k}`))
   }
 
-  // ── FRIENDSHIP GRAPHS ──
-  // friendship(k): all degrees even → Eulerian circuit. v = 2k+1, e = 3k. Hard when v>8 (k≥4).
   for (const k of [2, 3, 4, 5]) {
-    list.push({ raw: friendshipGraph(k), pts: friendshipLayout(k), label: `friendship-${k}` })
+    list.push(makeCand(friendshipGraph(k), friendshipLayout(k), `friendship-${k}`))
   }
 
-  // ── DOUBLE STAR ──
   for (const k of [1, 2, 3, 4]) {
-    list.push({
-      raw: doubleStarGraph(k),
-      pts: circularLayout(2 + 2 * k, 200, 200, 140),
-      label: `doubleStar-${k}`,
-    })
+    list.push(makeCand(doubleStarGraph(k), circularLayout(2 + 2 * k, 200, 200, 140), `doubleStar-${k}`))
   }
 
-  // ── PETERSEN-LIKE ──
-  list.push({ raw: petersenLike(), pts: petersenLayout(), label: 'petersen' })
-
-  // ── DOUBLE WHEEL ──
   for (const n of [4, 5, 6]) {
-    list.push({ raw: doubleWheelGraph(n), pts: doubleWheelLayout(n), label: `doubleWheel-${n}` })
+    list.push(makeCand(doubleWheelGraph(n), doubleWheelLayout(n), `doubleWheel-${n}`))
   }
 
-  // ── PRISM GRAPHS (impossible) ──
   for (const n of [3, 4, 5, 6]) {
-    list.push({ raw: prismGraph(n), pts: doubleRowLayout(n), label: `prism-${n}` })
+    list.push(makeCand(prismGraph(n), doubleRowLayout(n), `prism-${n}`))
   }
 
-  // ── STAR GRAPHS (impossible candidates) ──
   for (const k of [3, 5, 7, 4, 6]) {
-    list.push({ raw: starGraph(k), pts: hubAndRim(k), label: `star-${k}` })
+    list.push(makeCand(starGraph(k), hubAndRim(k), `star-${k}`))
   }
 
-  // ── GRID GRAPHS ──
-  list.push({ raw: gridGraph(2, 3), pts: gridLayout(2, 3), label: 'grid-2x3' })
-  list.push({ raw: gridGraph(3, 3), pts: gridLayout(3, 3), label: 'grid-3x3' })
-  list.push({ raw: gridGraph(2, 4), pts: gridLayout(2, 4), label: 'grid-2x4' })
-  list.push({ raw: gridGraph(3, 4), pts: gridLayout(3, 4), label: 'grid-3x4' })
+  list.push(makeCand(gridGraph(2, 3), gridLayout(2, 3), 'grid-2x3'))
+  list.push(makeCand(gridGraph(3, 3), gridLayout(3, 3), 'grid-3x3'))
+  list.push(makeCand(gridGraph(2, 4), gridLayout(2, 4), 'grid-2x4'))
+  list.push(makeCand(gridGraph(3, 4), gridLayout(3, 4), 'grid-3x4'))
 
-  // ── HANDCRAFTED MEMORABLE SHAPES ──
+  // Diamond
+  list.push(makeCand(
+    { vertexCount: 4, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},{from:1,to:3}] },
+    customLayout([[200,55],[335,200],[200,345],[65,200]]), 'diamond'
+  ))
 
-  // Diamond (rhombus): 4 vertices
-  list.push({
-    raw: { vertexCount: 4, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},{from:1,to:3}] },
-    pts: customLayout([[200,55],[335,200],[200,345],[65,200]]),
-    label: 'diamond-diagonal',
-  })
+  // Envelope
+  list.push(makeCand(
+    { vertexCount: 4, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},{from:2,to:4}] },
+    customLayout([[80,100],[320,100],[320,300],[80,300]]), 'envelope'
+  ))
 
-  // Envelope shape: rectangle + one diagonal
-  list.push({
-    raw: { vertexCount: 4, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},{from:2,to:4}] },
-    pts: customLayout([[80,100],[320,100],[320,300],[80,300]]),
-    label: 'envelope',
-  })
+  // Bowtie
+  list.push(makeCand(
+    { vertexCount: 5, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:1},{from:1,to:4},{from:4,to:5},{from:5,to:1}] },
+    customLayout([[200,200],[80,80],[80,320],[320,80],[320,320]]), 'bowtie'
+  ))
 
-  // Butterfly / bowtie: two triangles at center
-  list.push({
-    raw: { vertexCount: 5, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:1},{from:1,to:4},{from:4,to:5},{from:5,to:1}] },
-    pts: customLayout([[200,200],[80,80],[80,320],[320,80],[320,320]]),
-    label: 'bowtie',
-  })
+  // House
+  list.push(makeCand(
+    { vertexCount: 5, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},{from:1,to:5},{from:2,to:5}] },
+    customLayout([[100,300],[300,300],[300,150],[100,150],[200,60]]), 'house'
+  ))
 
-  // Arrow shape: path + extra edge making a filled arrowhead
-  list.push({
-    raw: { vertexCount: 5, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:5},{from:5,to:3},{from:1,to:5}] },
-    pts: customLayout([[200,330],[200,200],[200,70],[80,200],[320,200]]),
-    label: 'arrow',
-  })
+  // Barbell
+  list.push(makeCand(
+    { vertexCount: 6, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:1},{from:3,to:4},{from:4,to:5},{from:5,to:6},{from:6,to:4}] },
+    customLayout([[70,140],[70,260],[170,200],[230,200],[330,140],[330,260]]), 'barbell'
+  ))
 
-  // House shape: square + roof
-  list.push({
-    raw: { vertexCount: 5, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},{from:1,to:5},{from:2,to:5}] },
-    pts: customLayout([[100,300],[300,300],[300,150],[100,150],[200,60]]),
-    label: 'house',
-  })
+  // Kite
+  list.push(makeCand(
+    { vertexCount: 4, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:1},{from:1,to:4},{from:2,to:4}] },
+    customLayout([[200,60],[320,200],[200,340],[80,200]]), 'kite'
+  ))
 
-  // Barbell: two triangles connected by a bridge
-  list.push({
-    raw: {
-      vertexCount: 6,
-      edges: [
-        {from:1,to:2},{from:2,to:3},{from:3,to:1},
-        {from:3,to:4},
-        {from:4,to:5},{from:5,to:6},{from:6,to:4},
-      ],
-    },
-    pts: customLayout([[80,130],[80,270],[200,200],[200,200],[320,130],[320,270]]),
-    label: 'barbell-raw',
-  })
+  // Cross
+  list.push(makeCand(
+    { vertexCount: 5, edges: [{from:1,to:5},{from:2,to:5},{from:3,to:5},{from:4,to:5},{from:1,to:2},{from:2,to:3}] },
+    customLayout([[200,60],[340,200],[200,340],[60,200],[200,200]]), 'cross'
+  ))
 
-  // Better barbell with more separation
-  list.push({
-    raw: {
-      vertexCount: 6,
-      edges: [
-        {from:1,to:2},{from:2,to:3},{from:3,to:1},
-        {from:3,to:4},
-        {from:4,to:5},{from:5,to:6},{from:6,to:4},
-      ],
-    },
-    pts: customLayout([[70,140],[70,260],[170,200],[230,200],[330,140],[330,260]]),
-    label: 'barbell',
-  })
+  // Figure-8
+  list.push(makeCand(
+    { vertexCount: 7, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},{from:1,to:5},{from:5,to:6},{from:6,to:7},{from:7,to:1}] },
+    customLayout([[200,200],[80,110],[80,290],[200,60],[320,110],[320,290],[200,330]]), 'figure8'
+  ))
 
-  // Kite: 4 vertices, 5 edges
-  list.push({
-    raw: { vertexCount: 4, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:1},{from:1,to:4},{from:2,to:4}] },
-    pts: customLayout([[200,60],[320,200],[200,340],[80,200]]),
-    label: 'kite',
-  })
+  // Pinwheel
+  list.push(makeCand(
+    { vertexCount: 8, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},{from:1,to:5},{from:2,to:6},{from:3,to:7},{from:4,to:8}] },
+    customLayout([[150,150],[250,150],[250,250],[150,250],[70,70],[330,70],[330,330],[70,330]]), 'pinwheel'
+  ))
 
-  // Cross / plus shape
-  list.push({
-    raw: {
-      vertexCount: 5,
-      edges: [{from:1,to:5},{from:2,to:5},{from:3,to:5},{from:4,to:5},{from:1,to:2},{from:2,to:3}],
-    },
-    pts: customLayout([[200,60],[340,200],[200,340],[60,200],[200,200]]),
-    label: 'cross-partial',
-  })
+  // K4
+  list.push(makeCand(
+    { vertexCount: 4, edges: [{from:1,to:2},{from:1,to:3},{from:1,to:4},{from:2,to:3},{from:2,to:4},{from:3,to:4}] },
+    circularLayout(4), 'k4-classic'
+  ))
 
-  // Figure-8 / two loops sharing a vertex
-  list.push({
-    raw: {
-      vertexCount: 7,
-      edges: [
-        {from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},
-        {from:1,to:5},{from:5,to:6},{from:6,to:7},{from:7,to:1},
-      ],
-    },
-    pts: customLayout([[200,200],[100,100],[100,300],[300,300],[200,200],[300,100],[300,300]]),
-    label: 'figure8-raw',
-  })
+  // Hexagon triangulated
+  list.push(makeCand(
+    { vertexCount: 6, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:5},{from:5,to:6},{from:6,to:1},{from:1,to:3},{from:3,to:5},{from:5,to:1}] },
+    circularLayout(6), 'hex-triangulated'
+  ))
 
-  // Better figure-8
-  list.push({
-    raw: {
-      vertexCount: 7,
-      edges: [
-        {from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},
-        {from:1,to:5},{from:5,to:6},{from:6,to:7},{from:7,to:1},
-      ],
-    },
-    pts: customLayout([[200,200],[90,120],[90,280],[200,340],[310,120],[310,280],[200,340]]),
-    label: 'figure8-v2',
-  })
+  // Hexagon with 2 chords
+  list.push(makeCand(
+    { vertexCount: 6, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:5},{from:5,to:6},{from:6,to:1},{from:1,to:4},{from:2,to:5}] },
+    circularLayout(6), 'hex-2chords'
+  ))
 
-  // Correct figure-8: separate bottom vertices
-  list.push({
-    raw: {
-      vertexCount: 7,
-      edges: [
-        {from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},
-        {from:1,to:5},{from:5,to:6},{from:6,to:7},{from:7,to:1},
-      ],
-    },
-    pts: customLayout([[200,200],[80,110],[80,290],[200,60],[320,110],[320,290],[200,330]]),
-    label: 'figure8-v3',
-  })
+  // Pentagon with 2 diagonals
+  list.push(makeCand(
+    { vertexCount: 5, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:5},{from:5,to:1},{from:1,to:3},{from:2,to:4}] },
+    circularLayout(5), 'pent-2chords'
+  ))
 
-  // Pinwheel: 4-cycle + 4 outward spokes
-  list.push({
-    raw: {
-      vertexCount: 8,
-      edges: [
-        {from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:1},
-        {from:1,to:5},{from:2,to:6},{from:3,to:7},{from:4,to:8},
-      ],
-    },
-    pts: customLayout([
-      [150,150],[250,150],[250,250],[150,250],
-      [70,70],[330,70],[330,330],[70,330],
-    ]),
-    label: 'pinwheel',
-  })
-
-  // Snowflake: 6-cycle + 6 spokes to center
-  list.push({
-    raw: { vertexCount: 7, edges: [
-      {from:2,to:3},{from:3,to:4},{from:4,to:5},{from:5,to:6},{from:6,to:7},{from:7,to:2},
-      {from:1,to:2},{from:1,to:4},{from:1,to:6},
-    ]},
-    pts: [
-      {x:200,y:200},
-      ...circularLayout(6, 200, 200, 155),
-    ],
-    label: 'snowflake-3spoke',
-  })
-
-  // Complete graph K4
-  list.push({
-    raw: { vertexCount: 4, edges: [
-      {from:1,to:2},{from:1,to:3},{from:1,to:4},
-      {from:2,to:3},{from:2,to:4},{from:3,to:4},
-    ]},
-    pts: circularLayout(4),
-    label: 'k4',
-  })
-
-  // Complete graph K5 minus one edge (sometimes Eulerian)
-  list.push({
-    raw: { vertexCount: 5, edges: [
-      {from:1,to:2},{from:1,to:3},{from:1,to:4},{from:1,to:5},
-      {from:2,to:3},{from:2,to:4},{from:2,to:5},
-      {from:3,to:4},{from:3,to:5},
-      {from:4,to:5},
-    ]},
-    pts: circularLayout(5),
-    label: 'k5',
-  })
-
-  // K4 minus one edge
-  list.push({
-    raw: { vertexCount: 4, edges: [
-      {from:1,to:2},{from:1,to:3},{from:1,to:4},
-      {from:2,to:3},{from:2,to:4},
-    ]},
-    pts: circularLayout(4),
-    label: 'k4-minus1',
-  })
-
-  // Hexagon with 3 chords (triangulated)
-  list.push({
-    raw: { vertexCount: 6, edges: [
-      {from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:5},{from:5,to:6},{from:6,to:1},
-      {from:1,to:3},{from:3,to:5},{from:5,to:1},
-    ]},
-    pts: circularLayout(6),
-    label: 'hex-inner-triangle',
-  })
-
-  // Hexagon with 2 long chords
-  list.push({
-    raw: { vertexCount: 6, edges: [
-      {from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:5},{from:5,to:6},{from:6,to:1},
-      {from:1,to:4},{from:2,to:5},
-    ]},
-    pts: circularLayout(6),
-    label: 'hex-2chords',
-  })
-
-  // Hexagon with cross-chord
-  list.push({
-    raw: { vertexCount: 6, edges: [
-      {from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:5},{from:5,to:6},{from:6,to:1},
-      {from:1,to:4},
-    ]},
-    pts: circularLayout(6),
-    label: 'hex-1chord',
-  })
-
-  // Pentagon with one diagonal
-  list.push({
-    raw: { vertexCount: 5, edges: [
-      {from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:5},{from:5,to:1},
-      {from:1,to:3},
-    ]},
-    pts: circularLayout(5),
-    label: 'pent-1chord',
-  })
-
-  // Pentagon with two diagonals
-  list.push({
-    raw: { vertexCount: 5, edges: [
-      {from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:5},{from:5,to:1},
-      {from:1,to:3},{from:2,to:4},
-    ]},
-    pts: circularLayout(5),
-    label: 'pent-2chords',
-  })
-
-  // Octagon simple cycle
-  list.push({ raw: cycleGraph(8), pts: circularLayout(8), label: 'octagon' })
-
-  // Star polygon (8 points, alternating inner/outer ring)
-  list.push({
-    raw: {
-      vertexCount: 8,
-      edges: [
-        {from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:5},
-        {from:5,to:6},{from:6,to:7},{from:7,to:8},{from:8,to:1},
-        {from:1,to:3},{from:3,to:5},{from:5,to:7},{from:7,to:1},
-      ],
-    },
-    pts: starLayout(4),
-    label: 'star8-connected',
-  })
+  // Star polygon (8-point)
+  list.push(makeCand(
+    { vertexCount: 8, edges: [{from:1,to:2},{from:2,to:3},{from:3,to:4},{from:4,to:5},{from:5,to:6},{from:6,to:7},{from:7,to:8},{from:8,to:1},{from:1,to:3},{from:3,to:5},{from:5,to:7},{from:7,to:1}] },
+    starLayout(4), 'star8-connected'
+  ))
 
   return list
 }
-
-// ─── Main generation logic ───────────────────────────────────────────────────
 
 function generate(): GeneratedPuzzle[] {
   const candidates = allCandidates()
@@ -506,7 +493,6 @@ function generate(): GeneratedPuzzle[] {
     if (!puzzle) { skippedBuild++; continue }
     built++
 
-    // Hard puzzles naturally score lower (more nodes, possible crossings) — accept ≥ 30
     const qualityThreshold = puzzle.difficulty === 'hard' ? 30 : 40
     if ((puzzle._qualityScore ?? 0) < qualityThreshold) {
       skippedQuality++
@@ -538,49 +524,85 @@ function generate(): GeneratedPuzzle[] {
   return results
 }
 
-function categorize(puzzles: GeneratedPuzzle[]) {
-  const easySolvable   = puzzles.filter((p) => p.difficulty === 'easy' && p.solvable)
-  const easyImpossible = puzzles.filter((p) => p.difficulty === 'easy' && !p.solvable)
-  const hardSolvable   = puzzles.filter((p) => p.difficulty === 'hard' && p.solvable)
-  const hardImpossible = puzzles.filter((p) => p.difficulty === 'hard' && !p.solvable)
+const JUNE_SCHEDULE: Array<{ difficulty: Difficulty; solvable: boolean; date: string }> = [
+  { difficulty: 'easy', solvable: true,  date: 'Jun  1 Mon easy  solvable' },
+  { difficulty: 'easy', solvable: true,  date: 'Jun  2 Tue easy  solvable' },
+  { difficulty: 'easy', solvable: true,  date: 'Jun  3 Wed easy  solvable' },
+  { difficulty: 'easy', solvable: true,  date: 'Jun  4 Thu easy  solvable' },
+  { difficulty: 'hard', solvable: true,  date: 'Jun  5 Fri hard  solvable' },
+  { difficulty: 'hard', solvable: true,  date: 'Jun  6 Sat hard  solvable' },
+  { difficulty: 'hard', solvable: true,  date: 'Jun  7 Sun hard  solvable' },
+  { difficulty: 'easy', solvable: false, date: 'Jun  8 Mon easy  impossible' },
+  { difficulty: 'easy', solvable: true,  date: 'Jun  9 Tue easy  solvable' },
+  { difficulty: 'easy', solvable: true,  date: 'Jun 10 Wed easy  solvable' },
+  { difficulty: 'easy', solvable: true,  date: 'Jun 11 Thu easy  solvable' },
+  { difficulty: 'hard', solvable: true,  date: 'Jun 12 Fri hard  solvable' },
+  { difficulty: 'hard', solvable: true,  date: 'Jun 13 Sat hard  solvable' },
+  { difficulty: 'hard', solvable: true,  date: 'Jun 14 Sun hard  solvable' },
+]
 
-  // Sort by quality descending
+function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
   const byQ = (a: GeneratedPuzzle, b: GeneratedPuzzle) =>
     (b._qualityScore ?? 0) - (a._qualityScore ?? 0)
 
-  console.log(`\nPuzzle categories:`)
-  console.log(`  Easy solvable:   ${easySolvable.length}`)
-  console.log(`  Easy impossible: ${easyImpossible.length}`)
-  console.log(`  Hard solvable:   ${hardSolvable.length}`)
-  console.log(`  Hard impossible: ${hardImpossible.length}`)
+  const pools: Record<string, GeneratedPuzzle[]> = {
+    'easy-true':  all.filter((p) => p.difficulty === 'easy' && p.solvable).sort(byQ),
+    'easy-false': all.filter((p) => p.difficulty === 'easy' && !p.solvable).sort(byQ),
+    'hard-true':  all.filter((p) => p.difficulty === 'hard' && p.solvable).sort(byQ),
+    'hard-false': all.filter((p) => p.difficulty === 'hard' && !p.solvable).sort(byQ),
+  }
 
-  // Select top per category
-  const selected = [
-    ...easySolvable.sort(byQ).slice(0, 40),
-    ...easyImpossible.sort(byQ).slice(0, 10),
-    ...hardSolvable.sort(byQ).slice(0, 35),
-    ...hardImpossible.sort(byQ).slice(0, 10),
-  ]
+  console.log('\nPuzzle pools:')
+  for (const [k, v] of Object.entries(pools)) {
+    console.log(`  ${k}: ${v.length} candidates`)
+  }
 
-  // Re-assign sequential IDs
-  selected.forEach((p, i) => { p.id = 200 + i })
+  if (pools['easy-false'].length === 0) {
+    console.warn('  WARNING: No easy impossible puzzles! Selecting from hard-false as fallback.')
+  }
 
-  return selected
+  const cursors: Record<string, number> = {
+    'easy-true': 0, 'easy-false': 0, 'hard-true': 0, 'hard-false': 0,
+  }
+
+  console.log('\nSelecting for schedule:')
+  const result: GeneratedPuzzle[] = []
+
+  for (let i = 0; i < JUNE_SCHEDULE.length; i++) {
+    const slot = JUNE_SCHEDULE[i]
+    const key = `${slot.difficulty}-${slot.solvable}`
+    const pool = pools[key]
+    const c = cursors[key]
+
+    if (c >= pool.length && ['easy-false', 'hard-false'].includes(key) && pool.length > 0) {
+      cursors[key] = 0
+    }
+
+    const cursor = cursors[key]
+    if (cursor >= pool.length) {
+      throw new Error(`Not enough ${key} candidates for slot ${i + 1} (${slot.date})`)
+    }
+
+    const picked = pool[cursor]
+    cursors[key]++
+    console.log(`  #${i + 1} (${slot.date}): ${picked._label ?? 'unknown'} [q=${picked._qualityScore ?? '?'}]`)
+    result.push({ ...picked, id: i + 1 })
+  }
+
+  return result
 }
 
-function writeOutput(puzzles: GeneratedPuzzle[], outPath: string) {
-  const clean = puzzles.map(({ _qualityScore: _, ...p }) => p)
-
+function writePuzzlesFile(puzzles: GeneratedPuzzle[], outPath: string) {
   const lines: string[] = [
     '// AUTO-GENERATED by scripts/generatePuzzles.ts — do not hand-edit',
     "import type { Puzzle } from '../types'",
     '',
-    'const generatedPuzzles: Puzzle[] = [',
+    'const puzzles: Puzzle[] = [',
   ]
 
-  for (const p of clean) {
+  for (const p of puzzles) {
     const verts = p.vertices
-      .map((v) => `{ id: ${v.id}, x: ${v.x}, y: ${v.y} }`)
+      .map((v) => `{ id: ${v.id}, x: ${Math.round(v.x)}, y: ${Math.round(v.y)} }`)
       .join(', ')
     const edgs = p.edges
       .map((e) => `{ id: ${e.id}, from: ${e.from}, to: ${e.to} }`)
@@ -595,20 +617,19 @@ function writeOutput(puzzles: GeneratedPuzzle[], outPath: string) {
     )
   }
 
-  lines.push(']', '', 'export default generatedPuzzles', '')
+  lines.push(']', '', 'export default puzzles', '')
 
   writeFileSync(outPath, lines.join('\n'), 'utf-8')
   console.log(`\nWrote ${puzzles.length} puzzles → ${outPath}`)
 }
 
-// ─── Entry ───────────────────────────────────────────────────────────────────
-
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const outPath = resolve(__dirname, '../src/data/generatedPuzzles.ts')
+const outPath = resolve(__dirname, '../src/data/puzzles.ts')
 
-console.log('Grafle Puzzle Generator\n')
+console.log('Grafle Puzzle Generator v2 — Real Graph Engine\n')
+console.log(`Seed range: 1000-${1000 + _seedCounter}`)
 const all = generate()
-const selected = categorize(all)
-writeOutput(selected, outPath)
+const selected = selectForSchedule(all)
+writePuzzlesFile(selected, outPath)
 
-console.log('\nDone. Run `npm run build` to include generated puzzles in the app.')
+console.log('\nDone. Run `npm run build` to apply changes.')

@@ -1,9 +1,6 @@
 import puzzles from '../data/puzzles'
-import generatedPuzzles from '../data/generatedPuzzles'
 import specialPuzzles from '../data/specialPuzzles'
 import type { Puzzle } from '../types'
-
-const allPuzzles = [...puzzles, ...generatedPuzzles]
 
 // Grafle officially starts June 1, 2026 (Puzzle #1). June 1, 2026 is a Monday.
 const EPOCH = new Date('2026-06-01T00:00:00Z')
@@ -47,6 +44,12 @@ export function getPuzzleForDate(date?: Date): Puzzle {
   if (month === 6 && day === 19) return specialPuzzles[1]
 
   const dayOffset = daysSinceEpoch(d)
+
+  // First 14 days (June 1-14): direct mapping to scheduled puzzles
+  if (dayOffset >= 0 && dayOffset < puzzles.length) {
+    return puzzles[dayOffset]
+  }
+
   const weekNumber = Math.floor(dayOffset / 7)
   // dayOffset % 7 === 0 is Monday (epoch is a Monday)
   const dayOfWeek = ((dayOffset % 7) + 7) % 7
@@ -56,19 +59,19 @@ export function getPuzzleForDate(date?: Date): Puzzle {
   const impossibleDays = getWeekImpossibleSchedule(weekNumber)
   const requiredSolvable = !impossibleDays.includes(dayOfWeek)
 
-  const pool = allPuzzles.filter((p) => {
+  const pool = puzzles.filter((p) => {
     const difficultyMatch = isHard ? p.difficulty === 'hard' : p.difficulty !== 'hard'
     return difficultyMatch && p.solvable === requiredSolvable
   })
 
-  const safePool = pool.length > 0 ? pool : allPuzzles
+  const safePool = pool.length > 0 ? pool : puzzles
   return safePool[((dayOffset % safePool.length) + safePool.length) % safePool.length]
 }
 
 export function getPuzzleById(id: number): Puzzle | null {
   const special = specialPuzzles.find((p) => p.id === id)
   if (special) return special
-  return allPuzzles.find((p) => p.id === id) ?? null
+  return puzzles.find((p) => p.id === id) ?? null
 }
 
 export function getPuzzleByNumber(puzzleNumber: number): { puzzle: Puzzle; date: Date } | null {

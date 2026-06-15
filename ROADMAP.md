@@ -1,24 +1,80 @@
 # Grafle — Roadmap
 
-Items are listed in priority order. The MVP ships without any of these.
+Items are listed in priority order.
 
 ---
 
-## 1. Persistent Puzzle Storage
+## ✅ 0. Real Graph Engine (v2)
 
-**Status:** Planned  
-Replace the static `src/data/puzzles.ts` file with a real puzzle management system:
+**Status:** Shipped — June 2026
 
-- Database (Postgres, PlanetScale, etc.) storing puzzles with metadata
-- Admin UI or CLI for adding and scheduling new puzzles
+Replaced the static shape-based puzzle generation with a graph-theoretic engine:
+
+- **Random graph models**: Erdős–Rényi, Watts–Strogatz (small-world), Barabási–Albert (scale-free), random regular, random bipartite
+- **Classic named graphs**: Petersen, Chvátal, Wagner, Franklin, Herschel, Möbius–Kantor, Pappus, Desargues, Folkman, Coxeter, Robertson, cube Q3, octahedron, and more
+- **Graph operations**: chord addition, vertex split, Cartesian product, graph join
+- **Force-directed layout**: Fruchterman–Reingold algorithm for automatic, organic graph visualization
+- **Enhanced quality scoring**: edge length uniformity, angle resolution, degree bonuses
+
+Run `npm run generate` to produce a fresh set of puzzles.
+
+---
+
+## 1. Survival Mode
+
+**Status:** Planned
+
+Endless procedurally-generated puzzles with increasing difficulty:
+
+- Difficulty scales per round: more vertices, higher degrees, tighter degree constraints
+- Lives system carries over from daily mode
+- Leaderboard: most edges traversed in a single survival run
+- Practice mode with unlimited, low-stakes puzzles derived from the random graph engine
+
+The `randomGraphs.ts` module already provides the building blocks.
+
+---
+
+## 2. Classic Graph Challenges
+
+**Status:** Planned
+
+Specially curated puzzles based on famous graphs from mathematics:
+
+- "Name That Graph" — identify the classic graph from its structure
+- "The Impossible Collection" — a sequence of graphs with no Eulerian path
+- "Graph of the Day" spotlight: a classic graph with a historical note
+- Unlockable achievements: solve Petersen, solve all cubic graphs, etc.
+
+The `classicGraphs.ts` module contains the growing library of named graphs.
+
+---
+
+## 3. Graph Operations & Transformations
+
+**Status:** Planned
+
+Puzzles where the graph changes during gameplay:
+
+- **Subdivision rounds**: an edge splits mid-puzzle, adding a new vertex
+- **Edge deletion**: after each traversal, a random edge disappears
+- **Graph evolution**: start simple, watch the graph grow via operations each turn
+- **Dual challenges**: solve the dual graph instead of the primal
+
+---
+
+## 4. Persistent Puzzle Storage
+
+**Status:** Next up
+
+- Database (Postgres / Supabase) storing puzzles with metadata
+- Admin CLI for generating, reviewing, and scheduling puzzles
 - API endpoint to fetch today's puzzle by date
 - Versioned puzzle format for backwards compatibility
 
-The game engine is already decoupled from the puzzle source via `puzzleProvider.ts`.
-
 ---
 
-## 2. Global Leaderboard
+## 5. Global Leaderboard
 
 - Server-side ranking API
 - Anonymous submissions with player identifier + nickname
@@ -27,16 +83,16 @@ The game engine is already decoupled from the puzzle source via `puzzleProvider.
 
 ---
 
-## 3. Puzzle Editor
+## 6. Puzzle Editor
 
 - Visual drag-and-drop graph editor
 - Automatic solvability verification
-- Difficulty estimation algorithm
+- Difficulty estimation algorithm (uses the quality scoring engine)
 - Batch import/export
 
 ---
 
-## 4. Streak Sharing & Social
+## 7. Streak Sharing & Social
 
 - Daily share cards with puzzle artwork
 - Twitter/X card preview
@@ -44,7 +100,7 @@ The game engine is already decoupled from the puzzle source via `puzzleProvider.
 
 ---
 
-## 5. Accounts (Optional)
+## 8. Accounts (Optional)
 
 - Optional sign-up for cross-device sync
 - Email digest with daily puzzle reminder
@@ -52,14 +108,14 @@ The game engine is already decoupled from the puzzle source via `puzzleProvider.
 
 ---
 
-## 6. Additional Languages
+## 9. Additional Languages
 
 - French, Portuguese, German
 - RTL language support (Arabic, Hebrew)
 
 ---
 
-## 7. Accessibility
+## 10. Accessibility
 
 - Full keyboard navigation for the graph
 - Screen reader support with ARIA live regions
@@ -68,17 +124,8 @@ The game engine is already decoupled from the puzzle source via `puzzleProvider.
 
 ---
 
-## 8. Native App
+## 11. Native App
 
 - React Native port
 - App Store / Play Store distribution
 - Push notifications for daily puzzle reminder
-
----
-
-## 9. Puzzle Variations
-
-- Timed challenge mode
-- Multi-player head-to-head
-- Hint system (limited hints per day)
-- Practice mode with unlimited puzzles
