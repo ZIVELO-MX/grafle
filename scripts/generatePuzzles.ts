@@ -736,75 +736,62 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
   const result: GeneratedPuzzle[] = []
   const blockFamilies = new Set(['star', 'doubleStar'])
   // ── Birthday cake puzzles ──────────────────────────────────────────
-  // Symbolic cake graph (tree + Eulerian chords):
-  //   N3(flame) → N2(candle) → N1(cake body) → N4,N5,N6(decorations), N7(base)
-  // All vertices have even degree via decorative chords (ribbon edges).
-  //
-  // Layout — no 3+ vertices share x or y:
+  // Symbolic cake: N3(flame)→N2(candle)→N1(cake)→N4,N5,N6(decor),N7(base)
+  // Eulerian chords added so all vertices have even degree.
+  // Layout carefully avoids any edge passing through a non-incident vertex.
   const CAKE_LAYOUT: Pt[] = [
-    { x: 200, y: 200 },  // 1 — N1 cake body (centre)
-    { x: 190, y: 95 },   // 2 — N2 candle (slightly left)
+    { x: 200, y: 200 },  // 1 — N1 cake body
+    { x: 180, y: 90 },   // 2 — N2 candle (left stagger)
     { x: 200, y: 30 },   // 3 — N3 flame (centre top)
-    { x: 75, y: 195 },   // 4 — N4 left decoration
-    { x: 210, y: 280 },  // 5 — N5 centre decoration (right-staggered)
-    { x: 325, y: 195 },  // 6 — N6 right decoration
-    { x: 195, y: 360 },  // 7 — N7 base (slightly left)
+    { x: 60, y: 180 },   // 4 — N4 left decoration
+    { x: 280, y: 280 },  // 5 — N5 centre decoration (right)
+    { x: 340, y: 180 },  // 6 — N6 right decoration
+    { x: 180, y: 350 },  // 7 — N7 base (left stagger)
   ]
-  // x=200 shared by N1+N3 (2 nodes OK), y=195 shared by N4+N6 (2 nodes OK). No 3+ violations.
+  // Only shared x/y pairs: x=200(N1+N3), x=180(N2+N7), y=180(N4+N6) — 2 each, OK.
 
-  // Tree edges (backbone, straight):
-  //   N3-N2, N2-N1, N1-N4, N1-N6, N4-N5, N5-N6, N5-N7
-  // Eulerian chords (decorative ribbons, slightly curved):
-  //   N3-N5, N1-N7
-  const CAKE_EDGES_EASY: { from: number; to: number; curve: number }[] = [
-    { from: 3, to: 2, curve: 0 },
-    { from: 2, to: 1, curve: 0 },
-    { from: 1, to: 4, curve: 0 },
-    { from: 1, to: 6, curve: 0 },
-    { from: 4, to: 5, curve: 0 },
-    { from: 5, to: 6, curve: 0 },
-    { from: 5, to: 7, curve: 0 },
-    { from: 3, to: 5, curve: 14 },  // ribbon: flame → centre decor
-    { from: 1, to: 7, curve: 14 },  // ribbon: cake → base
+  // All edges straight (curve: 0) — no angles, no false intersections.
+  const CAKE_EDGES_EASY: { from: number; to: number }[] = [
+    { from: 3, to: 2 },  // N3-N2 flame-candle
+    { from: 2, to: 1 },  // N2-N1 candle-cake
+    { from: 1, to: 4 },  // N1-N4 cake-left decor
+    { from: 1, to: 6 },  // N1-N6 cake-right decor
+    { from: 4, to: 5 },  // N4-N5 left decor-centre decor
+    { from: 5, to: 6 },  // N5-N6 centre decor-right decor
+    { from: 5, to: 7 },  // N5-N7 centre decor-base
+    { from: 3, to: 5 },  // N3-N5 Eulerian chord (flame→decor)
+    { from: 1, to: 7 },  // N1-N7 Eulerian chord (cake→base)
   ]
   const CAKE_SOLUTION_EASY = [1, 2, 3, 5, 4, 1, 7, 5, 6, 1]
 
-  // Hard version: same tree + extra internal edges for complexity
-  const CAKE_EDGES_HARD: { from: number; to: number; curve: number }[] = [
+  // Hard: same base + 4 extra chords
+  const CAKE_EDGES_HARD: { from: number; to: number }[] = [
     ...CAKE_EDGES_EASY,
-    { from: 2, to: 4, curve: 12 },  // candle → left decor
-    { from: 2, to: 6, curve: 12 },  // candle → right decor
-    { from: 4, to: 7, curve: 12 },  // left decor → base
-    { from: 6, to: 7, curve: 12 },  // right decor → base
+    { from: 2, to: 4 },  // N2-N4 candle-left decor
+    { from: 2, to: 6 },  // N2-N6 candle-right decor
+    { from: 4, to: 7 },  // N4-N7 left decor-base
+    { from: 6, to: 7 },  // N6-N7 right decor-base
   ]
   const CAKE_SOLUTION_HARD = [1, 2, 3, 5, 4, 7, 6, 1, 4, 2, 6, 5, 7, 1]
 
   const SPECIAL_SLOTS = new Set([15, 18])
   const SPECIAL_PUZZLES: Record<number, {
     difficulty: Difficulty; solvable: boolean; graph: RawGraph; layout: Pt[]
-    solution: number[]; accent: string; curveVals: (number | undefined)[]
+    solution: number[]; accent: string
   }> = {
     15: {
       difficulty: 'easy', solvable: true,
-      graph: {
-        vertexCount: 7,
-        edges: CAKE_EDGES_EASY.map(e => ({ from: e.from, to: e.to })),
-      },
+      graph: { vertexCount: 7, edges: CAKE_EDGES_EASY },
       layout: CAKE_LAYOUT,
       solution: CAKE_SOLUTION_EASY,
       accent: '#166534',
-      curveVals: CAKE_EDGES_EASY.map(e => e.curve || undefined),
     },
     18: {
       difficulty: 'hard',  solvable: true,
-      graph: {
-        vertexCount: 7,
-        edges: CAKE_EDGES_HARD.map(e => ({ from: e.from, to: e.to })),
-      },
+      graph: { vertexCount: 7, edges: CAKE_EDGES_HARD },
       layout: CAKE_LAYOUT,
       solution: CAKE_SOLUTION_HARD,
       accent: '#dc2626',
-      curveVals: CAKE_EDGES_HARD.map(e => e.curve || undefined),
     },
   }
 
@@ -815,7 +802,6 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
       const vertices: Vertex[] = pts.map((p, idx) => ({ id: idx + 1, x: Math.round(p.x), y: Math.round(p.y) }))
       const edges: Edge[] = sp.graph.edges.map((e, idx) => ({
         id: idx + 1, from: e.from, to: e.to,
-        ...(sp.curveVals?.[idx] !== undefined ? { curve: sp.curveVals[idx] } : {}),
       }))
       const puzzle: GeneratedPuzzle = {
         id: i + 1,
