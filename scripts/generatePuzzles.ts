@@ -39,7 +39,7 @@ import { graphSignature, isDuplicate } from './lib/isomorphism.js'
 import { scoreVisualQuality } from './lib/quality.js'
 
 interface Vertex { id: number; x: number; y: number }
-interface Edge { id: number; from: number; to: number }
+interface Edge { id: number; from: number; to: number; curve?: number }
 
 type Difficulty = 'easy' | 'hard'
 
@@ -735,38 +735,74 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
   const consumed = new Set<string>()
   const result: GeneratedPuzzle[] = []
   const blockFamilies = new Set(['star', 'doubleStar'])
+  // ── Birthday cake puzzles ──────────────────────────────────────────
+  const smallCakeEdges: { from: number; to: number }[] = [
+    { from: 1, to: 2 }, { from: 1, to: 3 }, { from: 2, to: 3 },
+    { from: 2, to: 4 }, { from: 2, to: 5 }, { from: 3, to: 4 },
+    { from: 3, to: 5 }, { from: 4, to: 5 }, { from: 4, to: 6 },
+    { from: 5, to: 7 }, { from: 6, to: 7 },
+  ]
+  const smallCakeLayout: Pt[] = [
+    { x: 200, y: 60 }, { x: 145, y: 140 }, { x: 255, y: 140 },
+    { x: 115, y: 240 }, { x: 285, y: 240 }, { x: 75, y: 340 },
+    { x: 325, y: 340 },
+  ]
+  const smallCakeSolution = [1, 2, 3, 5, 7, 6, 4, 2, 5, 4, 3, 1]
+
+  const bigCakeEdges: { from: number; to: number }[] = [
+    { from: 1, to: 2 }, { from: 1, to: 3 }, { from: 2, to: 3 },
+    { from: 2, to: 4 }, { from: 2, to: 5 }, { from: 3, to: 4 },
+    { from: 3, to: 5 }, { from: 4, to: 5 }, { from: 4, to: 6 },
+    { from: 5, to: 8 }, { from: 6, to: 7 }, { from: 6, to: 8 },
+    { from: 7, to: 8 }, { from: 8, to: 11 }, { from: 6, to: 9 },
+    { from: 9, to: 10 }, { from: 10, to: 11 },
+  ]
+  const bigCakeLayout: Pt[] = [
+    { x: 200, y: 40 }, { x: 155, y: 115 }, { x: 245, y: 115 },
+    { x: 135, y: 195 }, { x: 265, y: 195 }, { x: 105, y: 275 },
+    { x: 200, y: 275 }, { x: 295, y: 275 }, { x: 85, y: 355 },
+    { x: 200, y: 355 }, { x: 315, y: 355 },
+  ]
+  const bigCakeSolution = [1, 2, 3, 4, 5, 8, 6, 7, 8, 11, 10, 9, 6, 4, 2, 5, 3, 1]
+
   const SPECIAL_SLOTS = new Set([15, 18])
-  const SPECIAL_PUZZLES: Record<number, { difficulty: Difficulty; solvable: boolean; graph: RawGraph; layout: Pt[] }> = {
-    15: { difficulty: 'easy', solvable: true, graph: friendshipGraph(3), layout: friendshipLayout(3) },
-    18: { difficulty: 'hard',  solvable: true, graph: friendshipGraph(5), layout: friendshipLayout(5) },
+  const SPECIAL_PUZZLES: Record<number, {
+    difficulty: Difficulty; solvable: boolean; graph: RawGraph; layout: Pt[]
+    solution: number[]
+  }> = {
+    15: {
+      difficulty: 'easy', solvable: true,
+      graph: { vertexCount: 7, edges: smallCakeEdges },
+      layout: smallCakeLayout,
+      solution: smallCakeSolution,
+    },
+    18: {
+      difficulty: 'hard',  solvable: true,
+      graph: { vertexCount: 11, edges: bigCakeEdges },
+      layout: bigCakeLayout,
+      solution: bigCakeSolution,
+    },
   }
 
   for (let i = 0; i < JUNE_SCHEDULE.length; i++) {
     if (SPECIAL_SLOTS.has(i)) {
       const sp = SPECIAL_PUZZLES[i]
-      const pts = repairEdgeProximity(
-        repairProximity(sp.layout.map((p) => ({ x: p.x, y: p.y }))),
-        sp.graph.edges
-      )
+      const pts = sp.layout.map((p) => ({ x: p.x, y: p.y }))
       const vertices: Vertex[] = pts.map((p, idx) => ({ id: idx + 1, x: Math.round(p.x), y: Math.round(p.y) }))
-      const edges: Edge[] = sp.graph.edges.map((e, idx) => ({ id: idx + 1, from: e.from, to: e.to }))
-      const solution = findEulerianPath(
-        vertices.map((v) => v.id),
-        edges.map((e) => ({ id: e.id, from: e.from, to: e.to }))
-      )
+      const edges: Edge[] = sp.graph.edges.map((e, idx) => ({ id: idx + 1, from: e.from, to: e.to, curve: 25 }))
       const puzzle: GeneratedPuzzle = {
         id: i + 1,
         difficulty: sp.difficulty,
         solvable: sp.solvable,
         vertices,
         edges,
-        officialSolution: solution ?? undefined,
+        officialSolution: sp.solution,
         _qualityScore: 100,
-        _label: `${sp.solvable ? 'friendship-' + (sp.graph.vertexCount === 7 ? '3' : '5') : ''}`,
-        _family: 'friendship',
+        _label: `cake-${sp.graph.vertexCount}`,
+        _family: 'cake',
         _complexity: sp.graph.vertexCount,
       }
-      console.log(`  #${i + 1} (${JUNE_SCHEDULE[i].date}): ${puzzle._label ?? 'friendship'} [q=100] [fam=friendship] [cpx=${puzzle._complexity}]`)
+      console.log(`  #${i + 1} (${JUNE_SCHEDULE[i].date}): ${puzzle._label} [q=100] [fam=cake] [cpx=${puzzle._complexity}]`)
       result.push(puzzle)
       continue
     }
@@ -837,7 +873,11 @@ function writePuzzlesFile(puzzles: GeneratedPuzzle[], outPath: string) {
       .map((v) => `{ id: ${v.id}, x: ${Math.round(v.x)}, y: ${Math.round(v.y)} }`)
       .join(', ')
     const edgs = p.edges
-      .map((e) => `{ id: ${e.id}, from: ${e.from}, to: ${e.to} }`)
+      .map((e) => {
+        let s = `{ id: ${e.id}, from: ${e.from}, to: ${e.to}`
+        if (e.curve !== undefined) s += `, curve: ${e.curve}`
+        return s + ' }'
+      })
       .join(', ')
     const sol = p.officialSolution
       ? `, officialSolution: [${p.officialSolution.join(', ')}]`

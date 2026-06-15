@@ -9,6 +9,7 @@ export interface Edge {
   id: number
   from: number
   to: number
+  curve?: number
 }
 
 export type Difficulty = 'easy' | 'medium' | 'hard'

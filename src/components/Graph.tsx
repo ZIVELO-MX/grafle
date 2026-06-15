@@ -240,6 +240,26 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
         {puzzle.edges.map((edge) => {
           const from = puzzle.vertices.find((v) => v.id === edge.from)!
           const to = puzzle.vertices.find((v) => v.id === edge.to)!
+
+          if (edge.curve) {
+            const mx = (from.x + to.x) / 2
+            const my = (from.y + to.y) / 2
+            const dx = to.x - from.x
+            const dy = to.y - from.y
+            const len = Math.hypot(dx, dy)
+            const nx = len > 0 ? (-dy / len) * edge.curve : 0
+            const ny = len > 0 ? (dx / len) * edge.curve : 0
+            return (
+              <path
+                key={`hit-${edge.id}`}
+                d={`M ${from.x} ${from.y} Q ${mx + nx} ${my + ny} ${to.x} ${to.y}`}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={24}
+              />
+            )
+          }
+
           return (
             <line
               key={`hit-${edge.id}`}
@@ -257,12 +277,35 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
           const to = puzzle.vertices.find((v) => v.id === edge.to)!
           const used = state.usedEdgeIds.has(edge.id)
           const isWon = state.status === 'won' || state.status === 'impossible-correct'
+          const color = edgeColor(used, isWon, darkMode)
+
+          if (edge.curve) {
+            const mx = (from.x + to.x) / 2
+            const my = (from.y + to.y) / 2
+            const dx = to.x - from.x
+            const dy = to.y - from.y
+            const len = Math.hypot(dx, dy)
+            const nx = len > 0 ? (-dy / len) * edge.curve : 0
+            const ny = len > 0 ? (dx / len) * edge.curve : 0
+            return (
+              <path
+                key={edge.id}
+                d={`M ${from.x} ${from.y} Q ${mx + nx} ${my + ny} ${to.x} ${to.y}`}
+                fill="none"
+                stroke={color}
+                strokeWidth={EDGE_W}
+                strokeLinecap="round"
+                className="transition-colors duration-300"
+              />
+            )
+          }
+
           return (
             <line
               key={edge.id}
               x1={from.x} y1={from.y}
               x2={to.x} y2={to.y}
-              stroke={edgeColor(used, isWon, darkMode)}
+              stroke={color}
               strokeWidth={EDGE_W}
               strokeLinecap="round"
               className="transition-colors duration-300"
