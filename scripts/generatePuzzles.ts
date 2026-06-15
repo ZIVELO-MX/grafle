@@ -736,19 +736,27 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
   const result: GeneratedPuzzle[] = []
   const blockFamilies = new Set(['star', 'doubleStar'])
   // ── Birthday cake puzzles ──────────────────────────────────────────
+  // Small cake (7 vertices, easy, Jun 16 — dark green accent)
   const smallCakeEdges: { from: number; to: number }[] = [
     { from: 1, to: 2 }, { from: 1, to: 3 }, { from: 2, to: 3 },
     { from: 2, to: 4 }, { from: 2, to: 5 }, { from: 3, to: 4 },
     { from: 3, to: 5 }, { from: 4, to: 5 }, { from: 4, to: 6 },
     { from: 5, to: 7 }, { from: 6, to: 7 },
   ]
+  // Layout: roof peak → wide base. No 3+ vertices share the same x or y.
   const smallCakeLayout: Pt[] = [
-    { x: 200, y: 60 }, { x: 145, y: 140 }, { x: 255, y: 140 },
-    { x: 115, y: 240 }, { x: 285, y: 240 }, { x: 75, y: 340 },
-    { x: 325, y: 340 },
+    { x: 200, y: 40 },   // 1 — roof peak
+    { x: 120, y: 120 },  // 2 — roof left
+    { x: 280, y: 120 },  // 3 — roof right
+    { x: 80, y: 230 },   // 4 — body left
+    { x: 320, y: 230 },  // 5 — body right
+    { x: 50, y: 350 },   // 6 — base left
+    { x: 350, y: 350 },  // 7 — base right
   ]
   const smallCakeSolution = [1, 2, 3, 5, 7, 6, 4, 2, 5, 4, 3, 1]
 
+  // Big cake (11 vertices, hard, Jun 19 — red accent)
+  // Tiered: roof → upper body → middle → base. All y-levels staggered to avoid false alignments.
   const bigCakeEdges: { from: number; to: number }[] = [
     { from: 1, to: 2 }, { from: 1, to: 3 }, { from: 2, to: 3 },
     { from: 2, to: 4 }, { from: 2, to: 5 }, { from: 3, to: 4 },
@@ -758,29 +766,38 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
     { from: 9, to: 10 }, { from: 10, to: 11 },
   ]
   const bigCakeLayout: Pt[] = [
-    { x: 200, y: 40 }, { x: 155, y: 115 }, { x: 245, y: 115 },
-    { x: 135, y: 195 }, { x: 265, y: 195 }, { x: 105, y: 275 },
-    { x: 200, y: 275 }, { x: 295, y: 275 }, { x: 85, y: 355 },
-    { x: 200, y: 355 }, { x: 315, y: 355 },
+    { x: 200, y: 30 },   // 1 — roof peak
+    { x: 150, y: 100 },  // 2 — roof left
+    { x: 250, y: 100 },  // 3 — roof right
+    { x: 100, y: 180 },  // 4 — upper body left
+    { x: 300, y: 180 },  // 5 — upper body right
+    { x: 70, y: 275 },   // 6 — middle left
+    { x: 195, y: 265 },  // 7 — middle centre (staggered up)
+    { x: 330, y: 275 },  // 8 — middle right
+    { x: 45, y: 360 },   // 9 — base left
+    { x: 205, y: 350 },  // 10 — base centre (staggered up)
+    { x: 355, y: 360 },  // 11 — base right
   ]
   const bigCakeSolution = [1, 2, 3, 4, 5, 8, 6, 7, 8, 11, 10, 9, 6, 4, 2, 5, 3, 1]
 
   const SPECIAL_SLOTS = new Set([15, 18])
   const SPECIAL_PUZZLES: Record<number, {
     difficulty: Difficulty; solvable: boolean; graph: RawGraph; layout: Pt[]
-    solution: number[]
+    solution: number[]; accent: string
   }> = {
     15: {
       difficulty: 'easy', solvable: true,
       graph: { vertexCount: 7, edges: smallCakeEdges },
       layout: smallCakeLayout,
       solution: smallCakeSolution,
+      accent: '#166534',
     },
     18: {
       difficulty: 'hard',  solvable: true,
       graph: { vertexCount: 11, edges: bigCakeEdges },
       layout: bigCakeLayout,
       solution: bigCakeSolution,
+      accent: '#dc2626',
     },
   }
 
@@ -802,6 +819,7 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
         _family: 'cake',
         _complexity: sp.graph.vertexCount,
       }
+      ;(puzzle as any).accent = sp.accent
       console.log(`  #${i + 1} (${JUNE_SCHEDULE[i].date}): ${puzzle._label} [q=100] [fam=cake] [cpx=${puzzle._complexity}]`)
       result.push(puzzle)
       continue
@@ -882,10 +900,11 @@ function writePuzzlesFile(puzzles: GeneratedPuzzle[], outPath: string) {
     const sol = p.officialSolution
       ? `, officialSolution: [${p.officialSolution.join(', ')}]`
       : ''
+    const acc = (p as any).accent ? `, accent: '${(p as any).accent}'` : ''
 
     lines.push(
       `  { id: ${p.id}, difficulty: '${p.difficulty}', solvable: ${p.solvable}, ` +
-      `vertices: [${verts}], edges: [${edgs}]${sol} },`
+      `vertices: [${verts}], edges: [${edgs}]${sol}${acc} },`
     )
   }
 

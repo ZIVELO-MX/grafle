@@ -79,6 +79,10 @@ export function loadResults(): DailyResult[] {
   return load<DailyResult[]>(KEYS.results, [])
 }
 
+export function saveResults(results: DailyResult[]) {
+  save(KEYS.results, results)
+}
+
 export function getResultForDate(date: string): DailyResult | null {
   const results = loadResults()
   return results.find((r) => r.date === date) ?? null

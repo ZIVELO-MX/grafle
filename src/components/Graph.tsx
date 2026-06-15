@@ -18,9 +18,9 @@ interface Props {
   darkMode: boolean
 }
 
-function edgeColor(used: boolean, won: boolean, dark: boolean): string {
-  if (used && won) return '#22c55e'
-  if (used) return '#3b82f6'
+function edgeColor(used: boolean, won: boolean, dark: boolean, accent?: string): string {
+  if (used && won) return accent ?? '#22c55e'
+  if (used) return accent ?? '#3b82f6'
   return dark ? '#374151' : '#d1d5db'
 }
 
@@ -277,7 +277,7 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
           const to = puzzle.vertices.find((v) => v.id === edge.to)!
           const used = state.usedEdgeIds.has(edge.id)
           const isWon = state.status === 'won' || state.status === 'impossible-correct'
-          const color = edgeColor(used, isWon, darkMode)
+          const color = edgeColor(used, isWon, darkMode, puzzle.accent)
 
           if (edge.curve) {
             const mx = (from.x + to.x) / 2

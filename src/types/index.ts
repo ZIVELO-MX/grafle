@@ -23,6 +23,7 @@ export interface Puzzle {
   officialSolution?: number[]
   isSpecial?: boolean
   specialDate?: string
+  accent?: string
 }
 
 export type GameStatus =

@@ -6,6 +6,7 @@ import ImpossibleButton from './components/ImpossibleButton'
 import LivesDisplay from './components/LivesDisplay'
 
 import SolutionViewer from './components/SolutionViewer'
+import Confetti from './components/Confetti'
 import Toast from './components/Toast'
 import HelpModal from './components/modals/HelpModal'
 import SettingsModal from './components/modals/SettingsModal'
@@ -20,7 +21,7 @@ import {
   getPuzzleByNumber,
   getCurrentPuzzleNumber,
 } from './lib/puzzleProvider'
-import { loadSettings, saveSettings, getResultForDate } from './lib/storage'
+import { loadSettings, saveSettings, getResultForDate, loadResults, saveResults } from './lib/storage'
 import { formatTime } from './lib/scoring'
 import type { GameState, ModalId, Puzzle, Settings } from './types'
 
@@ -93,6 +94,16 @@ export default function App() {
   useEffect(() => {
     hasStarted.current = false
   }, [puzzleNumber])
+
+  // Clean up stale results for future dates on mount
+  useEffect(() => {
+    const results = loadResults()
+    const today = new Date().toISOString().slice(0, 10)
+    const clean = results.filter(r => r.date <= today)
+    if (clean.length !== results.length) {
+      saveResults(clean)
+    }
+  }, [])
 
   // Tick whenever the clock is running: from Start press until the game ends
   const isTimerRunning = state.startTime !== null &&
@@ -237,6 +248,9 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* Confetti for special puzzles */}
+      <Confetti active={won && !!puzzle.accent} accent={puzzle.accent} />
 
       {/* Toast */}
       <Toast
