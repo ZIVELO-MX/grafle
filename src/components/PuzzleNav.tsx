@@ -9,7 +9,7 @@ interface Props {
 
 export default function PuzzleNav({ puzzleNumber, onPrev, onNext }: Props) {
   const t = useT()
-  const max = getCurrentPuzzleNumber()
+  const max = Math.max(getCurrentPuzzleNumber(), 30)
   const min = getMinPuzzleNumber()
 
   return (

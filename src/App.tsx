@@ -145,7 +145,7 @@ export default function App() {
         <PuzzleNav
           puzzleNumber={puzzleNumber}
           onPrev={() => setPuzzleNumber((n) => Math.max(1, n - 1))}
-          onNext={() => setPuzzleNumber((n) => Math.min(todayNumber, n + 1))}
+          onNext={() => setPuzzleNumber((n) => Math.min(Math.max(todayNumber, 30), n + 1))}
         />
 
         {/* Lives — only show for today's active game */}

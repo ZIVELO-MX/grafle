@@ -26,7 +26,7 @@ export function forceDirectedLayout(
   const rand = seededRandom(seed)
   const margin = MARGIN
   const area = width * height
-  const k = Math.sqrt(area / n) * 1.2
+    const k = Math.sqrt(area / n) * 1.8
 
   const pos: Pt[] = Array.from({ length: n }, () => ({
     x: r(margin + rand() * (width - 2 * margin)),
@@ -96,6 +96,30 @@ export function forceDirectedLayout(
       pos[i].x = Math.max(margin, Math.min(width - margin, pos[i].x))
       pos[i].y = Math.max(margin, Math.min(height - margin, pos[i].y))
     }
+  }
+
+  // Post-processing: enforce minimum distance between any two nodes
+  const MIN_DIST = 50
+  for (let iter = 0; iter < 30; iter++) {
+    let moved = false
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        let dx = pos[i].x - pos[j].x
+        let dy = pos[i].y - pos[j].y
+        const dist = Math.hypot(dx, dy)
+        if (dist < MIN_DIST && dist > 0.01) {
+          const push = (MIN_DIST - dist) / 2
+          const nx = (dx / dist) * push
+          const ny = (dy / dist) * push
+          pos[i].x = Math.max(margin, Math.min(width - margin, pos[i].x + nx))
+          pos[i].y = Math.max(margin, Math.min(height - margin, pos[i].y + ny))
+          pos[j].x = Math.max(margin, Math.min(width - margin, pos[j].x - nx))
+          pos[j].y = Math.max(margin, Math.min(height - margin, pos[j].y - ny))
+          moved = true
+        }
+      }
+    }
+    if (!moved) break
   }
 
   return pos.map((p) => ({ x: r(p.x), y: r(p.y) }))

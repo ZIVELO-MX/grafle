@@ -555,22 +555,33 @@ function generate(): GeneratedPuzzle[] {
   return results
 }
 
-const JUNE_SCHEDULE: Array<{ difficulty: Difficulty; solvable: boolean; date: string }> = [
-  { difficulty: 'easy', solvable: true,  date: 'Jun  1 Mon easy  solvable' },
-  { difficulty: 'easy', solvable: true,  date: 'Jun  2 Tue easy  solvable' },
-  { difficulty: 'easy', solvable: true,  date: 'Jun  3 Wed easy  solvable' },
-  { difficulty: 'easy', solvable: true,  date: 'Jun  4 Thu easy  solvable' },
-  { difficulty: 'hard', solvable: true,  date: 'Jun  5 Fri hard  solvable' },
-  { difficulty: 'hard', solvable: true,  date: 'Jun  6 Sat hard  solvable' },
-  { difficulty: 'hard', solvable: true,  date: 'Jun  7 Sun hard  solvable' },
-  { difficulty: 'easy', solvable: false, date: 'Jun  8 Mon easy  impossible' },
-  { difficulty: 'easy', solvable: true,  date: 'Jun  9 Tue easy  solvable' },
-  { difficulty: 'easy', solvable: true,  date: 'Jun 10 Wed easy  solvable' },
-  { difficulty: 'easy', solvable: true,  date: 'Jun 11 Thu easy  solvable' },
-  { difficulty: 'hard', solvable: true,  date: 'Jun 12 Fri hard  solvable' },
-  { difficulty: 'hard', solvable: true,  date: 'Jun 13 Sat hard  solvable' },
-  { difficulty: 'hard', solvable: true,  date: 'Jun 14 Sun hard  solvable' },
-]
+function generateJuneSchedule(): Array<{ difficulty: Difficulty; solvable: boolean; date: string }> {
+  const days: Array<{ difficulty: Difficulty; solvable: boolean; date: string }> = []
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+  // Impossible slots per week (day-of-week index, 0=Mon)
+  const weekImpossible: number[][] = [
+    [],       // week 1 (days 1-7)
+    [0],      // week 2 (days 8-14)  — Mon
+    [2],      // week 3 (days 15-21) — Wed
+    [0, 3],   // week 4 (days 22-28) — Mon, Thu
+    [],       // week 5 (days 29-30) — partial
+  ]
+
+  for (let day = 1; day <= 30; day++) {
+    const weekIdx = Math.floor((day - 1) / 7)
+    const dow = (day - 1) % 7
+    const isHard = dow >= 4
+    const impossibleSet = new Set(weekImpossible[weekIdx] ?? [])
+    const solvable = !impossibleSet.has(dow)
+    const difficulty: Difficulty = isHard ? 'hard' : 'easy'
+    const dateStr = `Jun ${String(day).padStart(2)} ${dayNames[dow]} ${difficulty} ${solvable ? 'solvable' : 'impossible'}`
+    days.push({ difficulty, solvable, date: dateStr })
+  }
+  return days
+}
+
+const JUNE_SCHEDULE = generateJuneSchedule()
 
 function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
   const DIVERSITY_WINDOW = 3
