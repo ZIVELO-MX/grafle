@@ -9,7 +9,7 @@ interface Props {
 
 export default function ImpossibleButton({ status, onImpossible, onRestart }: Props) {
   const t = useT()
-  const done = status === 'won' || status === 'impossible-correct'
+  const done = status === 'won' || status === 'impossible-correct' || status === 'lost'
 
   return (
     <div className="flex flex-col items-center gap-3">

@@ -3,6 +3,9 @@ import Header from './components/Header'
 import PuzzleNav from './components/PuzzleNav'
 import Graph from './components/Graph'
 import ImpossibleButton from './components/ImpossibleButton'
+import LivesDisplay from './components/LivesDisplay'
+import StartScreen from './components/StartScreen'
+import SolutionViewer from './components/SolutionViewer'
 import HelpModal from './components/modals/HelpModal'
 import SettingsModal from './components/modals/SettingsModal'
 import MenuDrawer from './components/modals/MenuDrawer'
@@ -41,11 +44,8 @@ export default function App() {
     ? getPuzzleForDate()
     : (getPuzzleByNumber(puzzleNumber)?.puzzle ?? getPuzzleForDate())
 
-  const { state, handleVertexClick, handleImpossible, restart, elapsedSeconds, score } = useGame(
-    puzzle,
-    puzzleNumber,
-    isToday
-  )
+  const { state, handleVertexClick, handleImpossible, restart, handleStart, elapsedSeconds, score } =
+    useGame(puzzle, puzzleNumber, isToday)
 
   useTick(state.status === 'playing')
 
@@ -58,9 +58,9 @@ export default function App() {
   const closeModal = useCallback(() => setModal(null), [])
 
   const won = state.status === 'won' || state.status === 'impossible-correct'
+  const lost = state.status === 'lost'
+  const gameStarted = state.status !== 'not-started'
 
-  // Fix: track whether completion modal has been shown for this win
-  // so closing it doesn't cause it to reopen immediately.
   const completionShownRef = useRef(false)
   useEffect(() => {
     if (!won) {
@@ -82,15 +82,18 @@ export default function App() {
     return t.tap_to_continue
   })()
 
-  const liveElapsed = state.startTime && state.status === 'playing'
-    ? Math.floor((Date.now() - state.startTime) / 1000)
-    : elapsedSeconds
+  const liveElapsed =
+    state.startTime && state.status === 'playing'
+      ? Math.floor((Date.now() - state.startTime) / 1000)
+      : elapsedSeconds
 
   const dark = settings.darkMode
 
   return (
     <I18nContext.Provider value={t}>
-      <div className={`min-h-dvh flex flex-col bg-[#f8f7f5] dark:bg-slate-900 transition-colors duration-300 ${dark ? 'dark' : ''}`}>
+      <div
+        className={`min-h-dvh flex flex-col bg-[#f8f7f5] dark:bg-slate-900 transition-colors duration-300 ${dark ? 'dark' : ''}`}
+      >
         <Header
           onOpen={openModal}
           darkMode={dark}
@@ -102,43 +105,71 @@ export default function App() {
           onNext={() => setPuzzleNumber((n) => Math.min(todayNumber, n + 1))}
         />
 
+        {/* Lives display — only after Start */}
+        {gameStarted && (
+          <LivesDisplay livesRemaining={state.livesRemaining} darkMode={dark} />
+        )}
+
         {/* Difficulty & Timer bar */}
         <div className="flex items-center justify-between px-4 py-1 text-xs text-slate-400 dark:text-slate-500">
           <DifficultyBadge difficulty={puzzle.difficulty} lang={settings.language} />
           <span className="font-mono tabular-nums">
-            {state.status !== 'idle' ? formatTime(liveElapsed) : '00:00'}
+            {state.status !== 'idle' && state.status !== 'not-started'
+              ? formatTime(liveElapsed)
+              : '00:00'}
           </span>
         </div>
 
         {/* Graph area */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-2 min-h-0">
           <div className="w-full max-w-sm aspect-square bg-white dark:bg-slate-800 rounded-3xl shadow-sm p-2">
-            <Graph puzzle={puzzle} state={state} onVertexClick={handleVertexClick} darkMode={dark} />
+            {state.status === 'not-started' ? (
+              <StartScreen
+                puzzleNumber={puzzleNumber}
+                difficulty={puzzle.difficulty}
+                onStart={handleStart}
+              />
+            ) : lost ? (
+              <SolutionViewer puzzle={puzzle} darkMode={dark} />
+            ) : (
+              <Graph puzzle={puzzle} state={state} onVertexClick={handleVertexClick} darkMode={dark} />
+            )}
           </div>
         </div>
 
         {/* Hint */}
-        <div className="text-center px-4 py-2 min-h-[2rem]">
-          <p
-            className={[
-              'text-xs transition-colors duration-300',
-              state.status === 'impossible-wrong'
-                ? 'text-amber-600 font-medium'
-                : 'text-slate-400 dark:text-slate-500',
-            ].join(' ')}
-          >
-            {gameHint}
-          </p>
-        </div>
+        {gameStarted && !lost && (
+          <div className="text-center px-4 py-2 min-h-[2rem]">
+            <p
+              className={[
+                'text-xs transition-colors duration-300',
+                state.status === 'impossible-wrong'
+                  ? 'text-amber-600 font-medium'
+                  : 'text-slate-400 dark:text-slate-500',
+              ].join(' ')}
+            >
+              {gameHint}
+            </p>
+          </div>
+        )}
+
+        {/* Lost message */}
+        {lost && (
+          <div className="text-center px-4 py-2 min-h-[2rem]">
+            <p className="text-xs text-rose-500 font-medium">{t.game_over}</p>
+          </div>
+        )}
 
         {/* Action */}
-        <div className="flex justify-center pb-8 pt-2">
-          <ImpossibleButton
-            status={state.status}
-            onImpossible={handleImpossible}
-            onRestart={restart}
-          />
-        </div>
+        {gameStarted && !lost && (
+          <div className="flex justify-center pb-8 pt-2">
+            <ImpossibleButton
+              status={state.status}
+              onImpossible={handleImpossible}
+              onRestart={restart}
+            />
+          </div>
+        )}
       </div>
 
       {/* Modals */}

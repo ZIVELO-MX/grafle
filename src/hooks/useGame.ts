@@ -4,17 +4,20 @@ import { findEdgeBetween, getUnusedAdjacentEdges } from '../lib/graphUtils'
 import { calculateScore } from '../lib/scoring'
 import { recordResult, saveProgress, clearProgress, loadProgress } from '../lib/storage'
 
+const MAX_LIVES = 3
+
 function initialState(): GameState {
   return {
     path: [],
     usedEdgeIds: new Set(),
     currentVertexId: null,
-    status: 'idle',
+    status: 'not-started',
     startTime: null,
     endTime: null,
     attempts: 0,
     invalidVertexId: null,
     stuckVertexId: null,
+    livesRemaining: MAX_LIVES,
   }
 }
 
@@ -23,6 +26,13 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
     if (isToday) {
       const saved = loadProgress()
       if (saved && saved.puzzleNumber === puzzleNumber) {
+        const savedStatus = saved.status as GameStatus
+        const restoredStatus: GameStatus =
+          savedStatus === 'not-started'
+            ? 'not-started'
+            : saved.path.length > 0
+              ? 'playing'
+              : 'idle'
         return {
           ...initialState(),
           path: saved.path,
@@ -30,7 +40,8 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
           currentVertexId: saved.currentVertexId,
           startTime: saved.startTime,
           attempts: saved.attempts,
-          status: saved.path.length > 0 ? 'playing' : 'idle',
+          livesRemaining: saved.livesRemaining,
+          status: restoredStatus,
         }
       }
     }
@@ -43,7 +54,8 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
 
   useEffect(() => {
     if (!isToday) return
-    if (state.status === 'playing' || state.status === 'idle') {
+    const { status } = state
+    if (status === 'playing' || status === 'idle' || status === 'not-started') {
       saveProgress({
         puzzleNumber,
         path: state.path,
@@ -51,17 +63,32 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
         currentVertexId: state.currentVertexId,
         startTime: state.startTime,
         attempts: state.attempts,
+        livesRemaining: state.livesRemaining,
+        status,
       })
     }
-    if (state.status === 'won' || state.status === 'impossible-correct') {
+    if (status === 'won' || status === 'impossible-correct' || status === 'lost') {
       clearProgress()
     }
   }, [state, isToday, puzzleNumber])
 
+  const handleStart = useCallback(() => {
+    setState((prev) => {
+      if (prev.status !== 'not-started') return prev
+      return { ...prev, status: 'idle' }
+    })
+  }, [])
+
   const handleVertexClick = useCallback(
     (vertexId: number) => {
       setState((prev) => {
-        if (prev.status === 'won' || prev.status === 'impossible-correct') return prev
+        if (
+          prev.status === 'won' ||
+          prev.status === 'impossible-correct' ||
+          prev.status === 'lost' ||
+          prev.status === 'not-started'
+        )
+          return prev
 
         if (prev.currentVertexId === null) {
           return {
@@ -107,7 +134,68 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
               score,
               time: elapsed,
               usedImpossible: false,
+              livesLost: MAX_LIVES - prev.livesRemaining,
             })
+          }
+          return {
+            ...prev,
+            path: newPath,
+            usedEdgeIds: newUsedEdges,
+            currentVertexId: vertexId,
+            status: newStatus,
+            endTime,
+            invalidVertexId: null,
+            stuckVertexId: null,
+          }
+        }
+
+        if (stuck) {
+          // Show stuck indicator first, then after delay decrement lives / reset or lose
+          setTimeout(() => {
+            setState((s) => {
+              if (s.status !== 'playing') return s
+              const newLives = s.livesRemaining - 1
+              if (newLives <= 0) {
+                const now = Date.now()
+                if (isToday) {
+                  const elapsed = Math.floor((now - (s.startTime ?? now)) / 1000)
+                  const today = new Date().toISOString().slice(0, 10)
+                  recordResult({
+                    puzzleId: puzzle.id,
+                    date: today,
+                    won: false,
+                    score: 0,
+                    time: elapsed,
+                    usedImpossible: false,
+                    livesLost: MAX_LIVES,
+                  })
+                }
+                return {
+                  ...s,
+                  livesRemaining: 0,
+                  status: 'lost',
+                  endTime: now,
+                  stuckVertexId: null,
+                }
+              }
+              // Reset path but keep graph visible (status: idle)
+              return {
+                ...initialState(),
+                livesRemaining: newLives,
+                status: 'idle',
+                startTime: s.startTime,
+                attempts: s.attempts + 1,
+              }
+            })
+          }, 1500)
+
+          return {
+            ...prev,
+            path: newPath,
+            usedEdgeIds: newUsedEdges,
+            currentVertexId: vertexId,
+            invalidVertexId: null,
+            stuckVertexId: vertexId,
           }
         }
 
@@ -119,7 +207,7 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
           status: newStatus,
           endTime,
           invalidVertexId: null,
-          stuckVertexId: stuck ? vertexId : null,
+          stuckVertexId: null,
         }
       })
 
@@ -132,7 +220,13 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
 
   const handleImpossible = useCallback(() => {
     setState((prev) => {
-      if (prev.status === 'won' || prev.status === 'impossible-correct') return prev
+      if (
+        prev.status === 'won' ||
+        prev.status === 'impossible-correct' ||
+        prev.status === 'lost' ||
+        prev.status === 'not-started'
+      )
+        return prev
 
       if (puzzle.solvable) {
         return { ...prev, status: 'impossible-wrong', attempts: prev.attempts + 1 }
@@ -150,6 +244,7 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
           score,
           time: elapsed,
           usedImpossible: true,
+          livesLost: MAX_LIVES - prev.livesRemaining,
         })
       }
 
@@ -171,11 +266,49 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
   }, [puzzle, isToday])
 
   const restart = useCallback(() => {
-    setState((prev) => ({
-      ...initialState(),
-      attempts: prev.attempts + 1,
-    }))
-  }, [])
+    setState((prev) => {
+      if (
+        prev.status === 'won' ||
+        prev.status === 'impossible-correct' ||
+        prev.status === 'lost' ||
+        prev.status === 'not-started'
+      )
+        return prev
+
+      const newLives = prev.livesRemaining - 1
+      if (newLives <= 0) {
+        const now = Date.now()
+        if (isToday) {
+          const elapsed = Math.floor((now - (prev.startTime ?? now)) / 1000)
+          const today = new Date().toISOString().slice(0, 10)
+          recordResult({
+            puzzleId: puzzle.id,
+            date: today,
+            won: false,
+            score: 0,
+            time: elapsed,
+            usedImpossible: false,
+            livesLost: MAX_LIVES,
+          })
+        }
+        return {
+          ...initialState(),
+          livesRemaining: 0,
+          status: 'lost',
+          startTime: prev.startTime,
+          endTime: now,
+          attempts: prev.attempts + 1,
+        }
+      }
+
+      return {
+        ...initialState(),
+        livesRemaining: newLives,
+        status: 'idle',
+        attempts: prev.attempts + 1,
+      }
+    })
+  }, [puzzle, isToday])
 
   const elapsedSeconds = state.startTime
     ? state.endTime
@@ -188,5 +321,5 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
       ? calculateScore(puzzle.difficulty, elapsedSeconds)
       : 0
 
-  return { state, handleVertexClick, handleImpossible, restart, elapsedSeconds, score }
+  return { state, handleVertexClick, handleImpossible, restart, handleStart, elapsedSeconds, score }
 }

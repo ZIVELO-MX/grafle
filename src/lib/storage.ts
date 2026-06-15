@@ -129,10 +129,14 @@ export interface GameProgress {
   currentVertexId: number | null
   startTime: number | null
   attempts: number
+  livesRemaining: number
+  status: string
 }
 
 export function loadProgress(): GameProgress | null {
-  return load<GameProgress | null>(KEYS.progress, null)
+  const saved = load<GameProgress | null>(KEYS.progress, null)
+  if (saved && typeof saved.livesRemaining !== 'number') return null
+  return saved
 }
 
 export function saveProgress(progress: GameProgress) {

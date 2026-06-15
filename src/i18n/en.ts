@@ -66,6 +66,19 @@ const en = {
   easy: 'Easy',
   medium: 'Medium',
   hard: 'Hard',
+
+  // Lives & game over
+  life_lost: 'Life lost!',
+  game_over: 'All lives lost',
+
+  // Solution viewer
+  solution_title: 'Official Solution',
+  solution_step: 'Move',
+  solution_of: 'of',
+  solution_prev: '← Prev',
+  solution_next: 'Next →',
+  solution_start: 'Start',
+  no_solution_available: 'No official solution available for this puzzle.',
 } as const
 
 export type I18nKeys = keyof typeof en

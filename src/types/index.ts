@@ -20,9 +20,18 @@ export interface Puzzle {
   difficulty: Difficulty
   solvable: boolean
   officialSolution?: number[]
+  isSpecial?: boolean
+  specialDate?: string
 }
 
-export type GameStatus = 'idle' | 'playing' | 'won' | 'impossible-correct' | 'impossible-wrong'
+export type GameStatus =
+  | 'not-started'
+  | 'idle'
+  | 'playing'
+  | 'won'
+  | 'impossible-correct'
+  | 'impossible-wrong'
+  | 'lost'
 
 export interface GameState {
   path: number[]
@@ -34,6 +43,7 @@ export interface GameState {
   attempts: number
   invalidVertexId: number | null
   stuckVertexId: number | null
+  livesRemaining: number
 }
 
 export interface PlayerStats {
@@ -53,6 +63,7 @@ export interface DailyResult {
   score: number
   time: number
   usedImpossible: boolean
+  livesLost?: number
 }
 
 export interface RankingEntry {
