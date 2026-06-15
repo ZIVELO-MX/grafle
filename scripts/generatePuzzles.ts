@@ -186,12 +186,61 @@ function repairProximity(verts: Pt[], margin = 35, minDist = 50): Pt[] {
   return pts
 }
 
+function breakFalseAlignments(verts: Pt[], rawEdges: { from: number; to: number }[], margin = 35): Pt[] {
+  const pts: Pt[] = verts.map((p) => ({ x: p.x, y: p.y }))
+  const TOL = 8
+  const W = 400, H = 400
+
+  // Break vertical stacks (same x)
+  for (let i = 0; i < pts.length; i++) {
+    const stack: number[] = []
+    for (let j = 0; j < pts.length; j++) {
+      if (Math.abs(pts[j].x - pts[i].x) < TOL) stack.push(j)
+    }
+    if (stack.length < 3) continue
+    const sorted = [...stack].sort((a, b) => pts[a].y - pts[b].y)
+    for (let k = 0; k < sorted.length - 1; k++) {
+      const a = sorted[k] + 1, b = sorted[k + 1] + 1
+      const connected = rawEdges.some((e) => (e.from === a && e.to === b) || (e.from === b && e.to === a))
+      if (!connected) {
+        const push = TOL * 2
+        const dir = k % 2 === 0 ? 1 : -1
+        for (const idx of sorted) pts[idx].x = Math.max(margin, Math.min(W - margin, pts[idx].x + dir * push))
+        break
+      }
+    }
+  }
+
+  // Break horizontal rows (same y)
+  for (let i = 0; i < pts.length; i++) {
+    const row: number[] = []
+    for (let j = 0; j < pts.length; j++) {
+      if (Math.abs(pts[j].y - pts[i].y) < TOL) row.push(j)
+    }
+    if (row.length < 3) continue
+    const sorted = [...row].sort((a, b) => pts[a].x - pts[b].x)
+    for (let k = 0; k < sorted.length - 1; k++) {
+      const a = sorted[k] + 1, b = sorted[k + 1] + 1
+      const connected = rawEdges.some((e) => (e.from === a && e.to === b) || (e.from === b && e.to === a))
+      if (!connected) {
+        const push = TOL * 2
+        const dir = k % 2 === 0 ? 1 : -1
+        for (const idx of sorted) pts[idx].y = Math.max(margin, Math.min(H - margin, pts[idx].y + dir * push))
+        break
+      }
+    }
+  }
+
+  return pts
+}
+
 function buildPuzzle(cand: Candidate, nextId: number): GeneratedPuzzle | null {
   const { raw, pts } = cand
   const n = raw.vertexCount
   if (pts.length !== n) return null
 
-  const fixed = repairProximity(pts)
+  const deAligned = breakFalseAlignments(pts, raw.edges)
+  const fixed = repairProximity(deAligned)
   const vertices: Vertex[] = fixed.map((p, i) => ({ id: i + 1, x: Math.round(p.x), y: Math.round(p.y) }))
   const edges: Edge[] = raw.edges.map((e, i) => ({ id: i + 1, from: e.from, to: e.to }))
   const vertexIds = vertices.map((v) => v.id)
@@ -632,6 +681,7 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
   const recentFamilies: string[] = []
   const consumed = new Set<string>()
   const result: GeneratedPuzzle[] = []
+  const blockFamilies = new Set(['star', 'doubleStar'])
 
   for (let i = 0; i < JUNE_SCHEDULE.length; i++) {
     const slot = JUNE_SCHEDULE[i]
@@ -648,7 +698,19 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
       const idKey = `${candidate._family ?? ''}:${candidate._label ?? ''}`
       if (consumed.has(idKey)) continue
       const family = candidate._family ?? 'unknown'
+      if (blockFamilies.has(family)) continue
       if (!lastFamilies.has(family)) {
+        picked = candidate
+        break
+      }
+    }
+
+    if (!picked) {
+      for (const candidate of pool) {
+        const idKey = `${candidate._family ?? ''}:${candidate._label ?? ''}`
+        if (consumed.has(idKey)) continue
+        const family = candidate._family ?? 'unknown'
+        if (blockFamilies.has(family)) continue
         picked = candidate
         break
       }

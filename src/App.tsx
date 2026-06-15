@@ -4,7 +4,7 @@ import PuzzleNav from './components/PuzzleNav'
 import Graph from './components/Graph'
 import ImpossibleButton from './components/ImpossibleButton'
 import LivesDisplay from './components/LivesDisplay'
-import StartScreen from './components/StartScreen'
+
 import SolutionViewer from './components/SolutionViewer'
 import Toast from './components/Toast'
 import HelpModal from './components/modals/HelpModal'
@@ -58,12 +58,10 @@ export default function App() {
   const [modal, setModal] = useState<ModalId>(null)
   const [puzzleNumber, setPuzzleNumber] = useState(getCurrentPuzzleNumber)
   const [showToast, setShowToast] = useState(false)
-  const [pastStarted, setPastStarted] = useState(false)
 
   const todayNumber = getCurrentPuzzleNumber()
   const isToday = puzzleNumber === todayNumber
-
-  useEffect(() => { setPastStarted(false) }, [puzzleNumber])
+  const hasStarted = useRef(false)
 
   const puzzleEntry = isToday
     ? { puzzle: getPuzzleForDate(), date: new Date() }
@@ -78,6 +76,18 @@ export default function App() {
 
   const { state, handleVertexClick, handleImpossible, restart, handleStart, elapsedSeconds, score } =
     useGame(puzzle, puzzleNumber, isToday)
+
+  // Auto-start: skip the start screen entirely
+  useEffect(() => {
+    if (state.status === 'not-started' && !hasStarted.current) {
+      hasStarted.current = true
+      setTimeout(() => handleStart(), 50)
+    }
+  }, [state.status, handleStart])
+
+  useEffect(() => {
+    hasStarted.current = false
+  }, [puzzleNumber])
 
   // Tick whenever the clock is running: from Start press until the game ends
   const isTimerRunning = state.startTime !== null &&
@@ -164,14 +174,7 @@ export default function App() {
         {/* Graph area */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-2 min-h-0">
           <div className="w-full max-w-sm aspect-square bg-white dark:bg-slate-800 rounded-3xl shadow-sm p-2">
-            {!isToday && !pastStarted ? (
-              <StartScreen
-                puzzleNumber={puzzleNumber}
-                difficulty={puzzle.difficulty}
-                onStart={() => { setPastStarted(true); handleStart() }}
-                isPast
-              />
-            ) : !isToday && isPastCompleted ? (
+            {!isToday && isPastCompleted ? (
               <Graph
                 puzzle={puzzle}
                 state={displayState!}
@@ -180,12 +183,6 @@ export default function App() {
               />
             ) : lost ? (
               <SolutionViewer puzzle={puzzle} darkMode={dark} />
-            ) : state.status === 'not-started' ? (
-              <StartScreen
-                puzzleNumber={puzzleNumber}
-                difficulty={puzzle.difficulty}
-                onStart={handleStart}
-              />
             ) : (
               <Graph puzzle={puzzle} state={effectiveState} onVertexClick={handleVertexClick} darkMode={dark} />
             )}
