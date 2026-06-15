@@ -77,6 +77,11 @@ export default function App() {
   const { state, handleVertexClick, handleImpossible, restart, handleStart, elapsedSeconds, score } =
     useGame(puzzle, puzzleNumber, isToday)
 
+  // Debug: log puzzle info to console
+  useEffect(() => {
+    console.log(`[puzzle #${puzzleNumber}] id=${puzzle.id} diff=${puzzle.difficulty} solvable=${puzzle.solvable} verts=${JSON.stringify(puzzle.vertices)} edges=${JSON.stringify(puzzle.edges)}`)
+  }, [puzzleNumber, puzzle])
+
   // Auto-start: skip the start screen entirely
   useEffect(() => {
     if (state.status === 'not-started' && !hasStarted.current) {

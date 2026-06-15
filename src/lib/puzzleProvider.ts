@@ -5,8 +5,7 @@ import type { Puzzle } from '../types'
 const EPOCH = new Date('2026-06-01T00:00:00Z')
 
 function daysSinceEpoch(date: Date): number {
-  const utc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-  return Math.floor((utc - EPOCH.getTime()) / 86400000)
+  return Math.floor((date.getTime() - EPOCH.getTime()) / 86400000)
 }
 
 // Returns weekday indices (0=Mon…6=Sun) that are impossible for a given week.
@@ -63,9 +62,11 @@ export function getPuzzleById(id: number): Puzzle | null {
 export function getPuzzleByNumber(puzzleNumber: number): { puzzle: Puzzle; date: Date } | null {
   if (puzzleNumber < 1) return null
   const dayOffset = puzzleNumber - 1
+  if (dayOffset < puzzles.length) {
+    return { puzzle: puzzles[dayOffset], date: new Date(EPOCH.getTime() + dayOffset * 86400000) }
+  }
   const date = new Date(EPOCH.getTime() + dayOffset * 86400000)
-  const puzzle = getPuzzleForDate(date)
-  return { puzzle, date }
+  return { puzzle: getPuzzleForDate(date), date }
 }
 
 export function getCurrentPuzzleNumber(): number {
