@@ -20,6 +20,7 @@ import {
   getPuzzleForDate,
   getPuzzleByNumber,
   getCurrentPuzzleNumber,
+  getMaxPuzzleNumber,
 } from './lib/puzzleProvider'
 import { loadSettings, saveSettings, getResultForDate, loadResults, saveResults } from './lib/storage'
 import { formatTime } from './lib/scoring'
@@ -171,7 +172,7 @@ export default function App() {
         <PuzzleNav
           puzzleNumber={puzzleNumber}
           onPrev={() => setPuzzleNumber((n) => Math.max(1, n - 1))}
-          onNext={() => setPuzzleNumber((n) => Math.min(Math.max(todayNumber, 30), n + 1))}
+          onNext={() => setPuzzleNumber((n) => Math.min(getMaxPuzzleNumber(), n + 1))}
         />
 
         {/* Lives — only show for today's active game */}

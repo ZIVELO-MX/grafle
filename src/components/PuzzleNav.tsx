@@ -1,5 +1,5 @@
 import { useT } from '../i18n'
-import { getCurrentPuzzleNumber, getMinPuzzleNumber } from '../lib/puzzleProvider'
+import { getMinPuzzleNumber, getMaxPuzzleNumber } from '../lib/puzzleProvider'
 
 interface Props {
   puzzleNumber: number
@@ -9,7 +9,7 @@ interface Props {
 
 export default function PuzzleNav({ puzzleNumber, onPrev, onNext }: Props) {
   const t = useT()
-  const max = Math.max(getCurrentPuzzleNumber(), 30)
+  const max = getMaxPuzzleNumber()
   const min = getMinPuzzleNumber()
 
   return (

@@ -78,3 +78,10 @@ export function getCurrentPuzzleNumber(): number {
 export function getMinPuzzleNumber(): number {
   return 1
 }
+
+// Toggle to true to allow navigating to puzzles beyond today's date
+const ALLOW_FUTURE_PUZZLES = false
+
+export function getMaxPuzzleNumber(): number {
+  return ALLOW_FUTURE_PUZZLES ? Math.max(getCurrentPuzzleNumber(), 30) : getCurrentPuzzleNumber()
+}
