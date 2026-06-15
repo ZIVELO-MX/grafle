@@ -736,68 +736,75 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
   const result: GeneratedPuzzle[] = []
   const blockFamilies = new Set(['star', 'doubleStar'])
   // ── Birthday cake puzzles ──────────────────────────────────────────
-  // Small cake (7 vertices, easy, Jun 16 — dark green accent)
-  const smallCakeEdges: { from: number; to: number }[] = [
-    { from: 1, to: 2 }, { from: 1, to: 3 }, { from: 2, to: 3 },
-    { from: 2, to: 4 }, { from: 2, to: 5 }, { from: 3, to: 4 },
-    { from: 3, to: 5 }, { from: 4, to: 5 }, { from: 4, to: 6 },
-    { from: 5, to: 7 }, { from: 6, to: 7 },
+  // Symbolic cake graph (tree + Eulerian chords):
+  //   N3(flame) → N2(candle) → N1(cake body) → N4,N5,N6(decorations), N7(base)
+  // All vertices have even degree via decorative chords (ribbon edges).
+  //
+  // Layout — no 3+ vertices share x or y:
+  const CAKE_LAYOUT: Pt[] = [
+    { x: 200, y: 200 },  // 1 — N1 cake body (centre)
+    { x: 190, y: 95 },   // 2 — N2 candle (slightly left)
+    { x: 200, y: 30 },   // 3 — N3 flame (centre top)
+    { x: 75, y: 195 },   // 4 — N4 left decoration
+    { x: 210, y: 280 },  // 5 — N5 centre decoration (right-staggered)
+    { x: 325, y: 195 },  // 6 — N6 right decoration
+    { x: 195, y: 360 },  // 7 — N7 base (slightly left)
   ]
-  // Layout: roof peak → wide base. No 3+ vertices share the same x or y.
-  const smallCakeLayout: Pt[] = [
-    { x: 200, y: 40 },   // 1 — roof peak
-    { x: 120, y: 120 },  // 2 — roof left
-    { x: 280, y: 120 },  // 3 — roof right
-    { x: 80, y: 230 },   // 4 — body left
-    { x: 320, y: 230 },  // 5 — body right
-    { x: 50, y: 350 },   // 6 — base left
-    { x: 350, y: 350 },  // 7 — base right
-  ]
-  const smallCakeSolution = [1, 2, 3, 5, 7, 6, 4, 2, 5, 4, 3, 1]
+  // x=200 shared by N1+N3 (2 nodes OK), y=195 shared by N4+N6 (2 nodes OK). No 3+ violations.
 
-  // Big cake (11 vertices, hard, Jun 19 — red accent)
-  // Tiered: roof → upper body → middle → base. All y-levels staggered to avoid false alignments.
-  const bigCakeEdges: { from: number; to: number }[] = [
-    { from: 1, to: 2 }, { from: 1, to: 3 }, { from: 2, to: 3 },
-    { from: 2, to: 4 }, { from: 2, to: 5 }, { from: 3, to: 4 },
-    { from: 3, to: 5 }, { from: 4, to: 5 }, { from: 4, to: 6 },
-    { from: 5, to: 8 }, { from: 6, to: 7 }, { from: 6, to: 8 },
-    { from: 7, to: 8 }, { from: 8, to: 11 }, { from: 6, to: 9 },
-    { from: 9, to: 10 }, { from: 10, to: 11 },
+  // Tree edges (backbone, straight):
+  //   N3-N2, N2-N1, N1-N4, N1-N6, N4-N5, N5-N6, N5-N7
+  // Eulerian chords (decorative ribbons, slightly curved):
+  //   N3-N5, N1-N7
+  const CAKE_EDGES_EASY: { from: number; to: number; curve: number }[] = [
+    { from: 3, to: 2, curve: 0 },
+    { from: 2, to: 1, curve: 0 },
+    { from: 1, to: 4, curve: 0 },
+    { from: 1, to: 6, curve: 0 },
+    { from: 4, to: 5, curve: 0 },
+    { from: 5, to: 6, curve: 0 },
+    { from: 5, to: 7, curve: 0 },
+    { from: 3, to: 5, curve: 14 },  // ribbon: flame → centre decor
+    { from: 1, to: 7, curve: 14 },  // ribbon: cake → base
   ]
-  const bigCakeLayout: Pt[] = [
-    { x: 200, y: 30 },   // 1 — roof peak
-    { x: 150, y: 100 },  // 2 — roof left
-    { x: 250, y: 100 },  // 3 — roof right
-    { x: 100, y: 180 },  // 4 — upper body left
-    { x: 300, y: 180 },  // 5 — upper body right
-    { x: 70, y: 275 },   // 6 — middle left
-    { x: 195, y: 265 },  // 7 — middle centre (staggered up)
-    { x: 330, y: 275 },  // 8 — middle right
-    { x: 45, y: 360 },   // 9 — base left
-    { x: 205, y: 350 },  // 10 — base centre (staggered up)
-    { x: 355, y: 360 },  // 11 — base right
+  const CAKE_SOLUTION_EASY = [1, 2, 3, 5, 4, 1, 7, 5, 6, 1]
+
+  // Hard version: same tree + extra internal edges for complexity
+  const CAKE_EDGES_HARD: { from: number; to: number; curve: number }[] = [
+    ...CAKE_EDGES_EASY,
+    { from: 2, to: 4, curve: 12 },  // candle → left decor
+    { from: 2, to: 6, curve: 12 },  // candle → right decor
+    { from: 4, to: 7, curve: 12 },  // left decor → base
+    { from: 6, to: 7, curve: 12 },  // right decor → base
   ]
-  const bigCakeSolution = [1, 2, 3, 4, 5, 8, 6, 7, 8, 11, 10, 9, 6, 4, 2, 5, 3, 1]
+  const CAKE_SOLUTION_HARD = [1, 2, 3, 5, 4, 7, 6, 1, 4, 2, 6, 5, 7, 1]
 
   const SPECIAL_SLOTS = new Set([15, 18])
   const SPECIAL_PUZZLES: Record<number, {
     difficulty: Difficulty; solvable: boolean; graph: RawGraph; layout: Pt[]
-    solution: number[]; accent: string
+    solution: number[]; accent: string; curveVals: (number | undefined)[]
   }> = {
     15: {
       difficulty: 'easy', solvable: true,
-      graph: { vertexCount: 7, edges: smallCakeEdges },
-      layout: smallCakeLayout,
-      solution: smallCakeSolution,
+      graph: {
+        vertexCount: 7,
+        edges: CAKE_EDGES_EASY.map(e => ({ from: e.from, to: e.to })),
+      },
+      layout: CAKE_LAYOUT,
+      solution: CAKE_SOLUTION_EASY,
       accent: '#166534',
+      curveVals: CAKE_EDGES_EASY.map(e => e.curve || undefined),
     },
     18: {
       difficulty: 'hard',  solvable: true,
-      graph: { vertexCount: 11, edges: bigCakeEdges },
-      layout: bigCakeLayout,
-      solution: bigCakeSolution,
+      graph: {
+        vertexCount: 7,
+        edges: CAKE_EDGES_HARD.map(e => ({ from: e.from, to: e.to })),
+      },
+      layout: CAKE_LAYOUT,
+      solution: CAKE_SOLUTION_HARD,
       accent: '#dc2626',
+      curveVals: CAKE_EDGES_HARD.map(e => e.curve || undefined),
     },
   }
 
@@ -806,7 +813,10 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
       const sp = SPECIAL_PUZZLES[i]
       const pts = sp.layout.map((p) => ({ x: p.x, y: p.y }))
       const vertices: Vertex[] = pts.map((p, idx) => ({ id: idx + 1, x: Math.round(p.x), y: Math.round(p.y) }))
-      const edges: Edge[] = sp.graph.edges.map((e, idx) => ({ id: idx + 1, from: e.from, to: e.to, curve: 25 }))
+      const edges: Edge[] = sp.graph.edges.map((e, idx) => ({
+        id: idx + 1, from: e.from, to: e.to,
+        ...(sp.curveVals?.[idx] !== undefined ? { curve: sp.curveVals[idx] } : {}),
+      }))
       const puzzle: GeneratedPuzzle = {
         id: i + 1,
         difficulty: sp.difficulty,
