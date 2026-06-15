@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface Props {
   message: string
@@ -8,17 +8,20 @@ interface Props {
 
 export default function Toast({ message, show, onDone }: Props) {
   const [visible, setVisible] = useState(false)
+  // Keep onDone in a ref so the effect never stales but also never re-fires
+  // just because the parent re-renders and recreates the callback reference.
+  const onDoneRef = useRef(onDone)
+  useEffect(() => { onDoneRef.current = onDone })
 
   useEffect(() => {
     if (!show) return
     setVisible(true)
     const t = setTimeout(() => {
       setVisible(false)
-      // Allow fade-out before notifying parent
-      setTimeout(onDone, 400)
+      setTimeout(() => onDoneRef.current(), 400)
     }, 2000)
     return () => clearTimeout(t)
-  }, [show, onDone])
+  }, [show])
 
   return (
     <div

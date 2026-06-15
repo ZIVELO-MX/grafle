@@ -100,6 +100,14 @@ function buildPuzzle(cand: Candidate, nextId: number): GeneratedPuzzle | null {
 
   const solvable = isSolvable(vertexIds, raw.edges)
 
+  // Reject solvable puzzles where no vertex has degree ≥ 3: these are pure paths or
+  // pure cycles — the player has no real choice at any step (only one possible traversal).
+  if (solvable) {
+    const deg = getVertexDegrees(vertexIds, raw.edges)
+    const maxDegree = Math.max(...deg.values())
+    if (maxDegree < 3) return null
+  }
+
   let officialSolution: number[] | undefined
   if (solvable) {
     const sol = findEulerianPath(
@@ -498,7 +506,9 @@ function generate(): GeneratedPuzzle[] {
     if (!puzzle) { skippedBuild++; continue }
     built++
 
-    if ((puzzle._qualityScore ?? 0) < 40) {
+    // Hard puzzles naturally score lower (more nodes, possible crossings) — accept ≥ 30
+    const qualityThreshold = puzzle.difficulty === 'hard' ? 30 : 40
+    if ((puzzle._qualityScore ?? 0) < qualityThreshold) {
       skippedQuality++
       continue
     }
