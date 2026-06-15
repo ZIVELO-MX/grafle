@@ -169,7 +169,7 @@ export default function App() {
               <StartScreen
                 puzzleNumber={puzzleNumber}
                 difficulty={puzzle.difficulty}
-                onStart={() => setPastStarted(true)}
+                onStart={() => { setPastStarted(true); handleStart() }}
                 isPast
               />
             ) : !isToday && isPastCompleted ? (
