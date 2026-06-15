@@ -66,6 +66,19 @@ const es = {
   easy: 'Fácil',
   medium: 'Medio',
   hard: 'Difícil',
+
+  // Lives & game over
+  life_lost: '¡Vida perdida!',
+  game_over: 'Sin vidas restantes',
+
+  // Solution viewer
+  solution_title: 'Solución Oficial',
+  solution_step: 'Movimiento',
+  solution_of: 'de',
+  solution_prev: '← Anterior',
+  solution_next: 'Siguiente →',
+  solution_start: 'Inicio',
+  no_solution_available: 'No hay solución oficial disponible para este puzzle.',
 } as const
 
 export default es
