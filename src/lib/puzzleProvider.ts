@@ -1,13 +1,13 @@
 import puzzles from '../data/puzzles'
-import specialPuzzles from '../data/specialPuzzles'
 import type { Puzzle } from '../types'
 
 // Grafle officially starts June 1, 2026 (Puzzle #1). June 1, 2026 is a Monday.
 const EPOCH = new Date('2026-06-01T00:00:00Z')
 
 function daysSinceEpoch(date: Date): number {
-  const utc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-  return Math.floor((utc - EPOCH.getTime()) / 86400000)
+  // Use local date components so the puzzle changes at midnight LOCAL time
+  const localMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  return Math.floor((localMidnight.getTime() - EPOCH.getTime()) / 86400000)
 }
 
 // Returns weekday indices (0=Mon…6=Sun) that are impossible for a given week.
@@ -30,25 +30,20 @@ function getWeekImpossibleSchedule(weekNumber: number): number[] {
 
 export function getPuzzleNumber(date?: Date): number {
   const offset = daysSinceEpoch(date ?? new Date())
-  // Puzzle numbers only exist from Puzzle #1 onward (day 0 = Puzzle #1)
   return Math.max(1, offset + 1)
 }
 
 export function getPuzzleForDate(date?: Date): Puzzle {
   const d = date ?? new Date()
-
-  // Special date check (any year): June 16 and June 19
-  const month = d.getMonth() + 1
-  const day = d.getDate()
-  if (month === 6 && day === 16) return specialPuzzles[0]
-  if (month === 6 && day === 19) return specialPuzzles[1]
-
   const dayOffset = daysSinceEpoch(d)
+
+  if (dayOffset >= 0 && dayOffset < puzzles.length) {
+    return puzzles[dayOffset]
+  }
+
   const weekNumber = Math.floor(dayOffset / 7)
-  // dayOffset % 7 === 0 is Monday (epoch is a Monday)
   const dayOfWeek = ((dayOffset % 7) + 7) % 7
 
-  // Mon–Thu (0–3) = easy/medium; Fri–Sun (4–6) = hard
   const isHard = dayOfWeek >= 4
   const impossibleDays = getWeekImpossibleSchedule(weekNumber)
   const requiredSolvable = !impossibleDays.includes(dayOfWeek)
@@ -63,17 +58,17 @@ export function getPuzzleForDate(date?: Date): Puzzle {
 }
 
 export function getPuzzleById(id: number): Puzzle | null {
-  const special = specialPuzzles.find((p) => p.id === id)
-  if (special) return special
   return puzzles.find((p) => p.id === id) ?? null
 }
 
 export function getPuzzleByNumber(puzzleNumber: number): { puzzle: Puzzle; date: Date } | null {
   if (puzzleNumber < 1) return null
   const dayOffset = puzzleNumber - 1
+  if (dayOffset < puzzles.length) {
+    return { puzzle: puzzles[dayOffset], date: new Date(EPOCH.getTime() + dayOffset * 86400000) }
+  }
   const date = new Date(EPOCH.getTime() + dayOffset * 86400000)
-  const puzzle = getPuzzleForDate(date)
-  return { puzzle, date }
+  return { puzzle: getPuzzleForDate(date), date }
 }
 
 export function getCurrentPuzzleNumber(): number {
@@ -82,4 +77,11 @@ export function getCurrentPuzzleNumber(): number {
 
 export function getMinPuzzleNumber(): number {
   return 1
+}
+
+// Toggle to true to allow navigating to puzzles beyond today's date
+const ALLOW_FUTURE_PUZZLES = false
+
+export function getMaxPuzzleNumber(): number {
+  return ALLOW_FUTURE_PUZZLES ? Math.max(getCurrentPuzzleNumber(), 30) : getCurrentPuzzleNumber()
 }

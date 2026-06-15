@@ -9,6 +9,7 @@ export interface Edge {
   id: number
   from: number
   to: number
+  curve?: number
 }
 
 export type Difficulty = 'easy' | 'medium' | 'hard'
@@ -22,6 +23,7 @@ export interface Puzzle {
   officialSolution?: number[]
   isSpecial?: boolean
   specialDate?: string
+  accent?: string
 }
 
 export type GameStatus =

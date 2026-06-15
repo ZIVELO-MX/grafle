@@ -4,8 +4,9 @@ import PuzzleNav from './components/PuzzleNav'
 import Graph from './components/Graph'
 import ImpossibleButton from './components/ImpossibleButton'
 import LivesDisplay from './components/LivesDisplay'
-import StartScreen from './components/StartScreen'
+
 import SolutionViewer from './components/SolutionViewer'
+import Confetti from './components/Confetti'
 import Toast from './components/Toast'
 import HelpModal from './components/modals/HelpModal'
 import SettingsModal from './components/modals/SettingsModal'
@@ -19,8 +20,9 @@ import {
   getPuzzleForDate,
   getPuzzleByNumber,
   getCurrentPuzzleNumber,
+  getMaxPuzzleNumber,
 } from './lib/puzzleProvider'
-import { loadSettings, saveSettings, getResultForDate } from './lib/storage'
+import { loadSettings, saveSettings, getResultForDate, loadResults, saveResults } from './lib/storage'
 import { formatTime } from './lib/scoring'
 import type { GameState, ModalId, Puzzle, Settings } from './types'
 
@@ -61,6 +63,7 @@ export default function App() {
 
   const todayNumber = getCurrentPuzzleNumber()
   const isToday = puzzleNumber === todayNumber
+  const hasStarted = useRef(false)
 
   const puzzleEntry = isToday
     ? { puzzle: getPuzzleForDate(), date: new Date() }
@@ -76,7 +79,37 @@ export default function App() {
   const { state, handleVertexClick, handleImpossible, restart, handleStart, elapsedSeconds, score } =
     useGame(puzzle, puzzleNumber, isToday)
 
-  useTick(state.status === 'playing')
+  // Debug: log puzzle info to console
+  useEffect(() => {
+    console.log(`[puzzle #${puzzleNumber}] id=${puzzle.id} diff=${puzzle.difficulty} solvable=${puzzle.solvable} verts=${JSON.stringify(puzzle.vertices)} edges=${JSON.stringify(puzzle.edges)}`)
+  }, [puzzleNumber, puzzle])
+
+  // Auto-start: skip the start screen entirely
+  useEffect(() => {
+    if (state.status === 'not-started' && !hasStarted.current) {
+      hasStarted.current = true
+      setTimeout(() => handleStart(), 50)
+    }
+  }, [state.status, handleStart])
+
+  useEffect(() => {
+    hasStarted.current = false
+  }, [puzzleNumber])
+
+  // Clean up stale results for future dates on mount
+  useEffect(() => {
+    const results = loadResults()
+    const today = new Date().toISOString().slice(0, 10)
+    const clean = results.filter(r => r.date <= today)
+    if (clean.length !== results.length) {
+      saveResults(clean)
+    }
+  }, [])
+
+  // Tick whenever the clock is running: from Start press until the game ends
+  const isTimerRunning = state.startTime !== null &&
+    state.status !== 'won' && state.status !== 'impossible-correct' && state.status !== 'lost'
+  useTick(isTimerRunning)
 
   const handleSettingsSave = useCallback((s: Settings) => {
     setSettings(s)
@@ -113,7 +146,7 @@ export default function App() {
   })()
 
   const liveElapsed =
-    state.startTime && state.status === 'playing'
+    state.startTime && !won && !lost
       ? Math.floor((Date.now() - state.startTime) / 1000)
       : elapsedSeconds
 
@@ -139,7 +172,7 @@ export default function App() {
         <PuzzleNav
           puzzleNumber={puzzleNumber}
           onPrev={() => setPuzzleNumber((n) => Math.max(1, n - 1))}
-          onNext={() => setPuzzleNumber((n) => Math.min(todayNumber, n + 1))}
+          onNext={() => setPuzzleNumber((n) => Math.min(getMaxPuzzleNumber(), n + 1))}
         />
 
         {/* Lives — only show for today's active game */}
@@ -151,47 +184,30 @@ export default function App() {
         <div className="flex items-center justify-between px-4 py-1 text-xs text-slate-400 dark:text-slate-500">
           <DifficultyBadge difficulty={puzzle.difficulty} lang={settings.language} />
           <span className="font-mono tabular-nums">
-            {isToday && state.status !== 'idle' && state.status !== 'not-started'
-              ? formatTime(liveElapsed)
-              : '00:00'}
+            {isToday && state.startTime !== null ? formatTime(liveElapsed) : '00:00'}
           </span>
         </div>
 
         {/* Graph area */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-2 min-h-0">
           <div className="w-full max-w-sm aspect-square bg-white dark:bg-slate-800 rounded-3xl shadow-sm p-2">
-            {isPastCompleted ? (
-              // Past puzzle already solved — show completed graph
+            {!isToday && isPastCompleted ? (
               <Graph
                 puzzle={puzzle}
                 state={displayState!}
                 onVertexClick={() => {}}
                 darkMode={dark}
               />
-            ) : !isToday ? (
-              // Past puzzle not solved — just show the graph interactively
-              <Graph
-                puzzle={puzzle}
-                state={effectiveState}
-                onVertexClick={handleVertexClick}
-                darkMode={dark}
-              />
-            ) : state.status === 'not-started' ? (
-              <StartScreen
-                puzzleNumber={puzzleNumber}
-                difficulty={puzzle.difficulty}
-                onStart={handleStart}
-              />
             ) : lost ? (
               <SolutionViewer puzzle={puzzle} darkMode={dark} />
             ) : (
-              <Graph puzzle={puzzle} state={state} onVertexClick={handleVertexClick} darkMode={dark} />
+              <Graph puzzle={puzzle} state={effectiveState} onVertexClick={handleVertexClick} darkMode={dark} />
             )}
           </div>
         </div>
 
         {/* Hint */}
-        {isToday && gameStarted && !lost && (
+        {gameStarted && !lost && !isPastCompleted && (
           <div className="text-center px-4 py-2 min-h-[2rem]">
             <p
               className={[
@@ -207,7 +223,7 @@ export default function App() {
         )}
 
         {/* Game over message */}
-        {isToday && lost && (
+        {lost && (
           <div className="text-center px-4 py-2 min-h-[2rem]">
             <p className="text-xs text-rose-500 font-medium">{t.game_over}</p>
           </div>
@@ -223,7 +239,7 @@ export default function App() {
         )}
 
         {/* Action */}
-        {isToday && gameStarted && !lost && (
+        {gameStarted && !lost && !isPastCompleted && (
           <div className="flex justify-center pb-8 pt-2">
             <ImpossibleButton
               status={state.status}
@@ -233,6 +249,9 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* Confetti for special puzzles */}
+      <Confetti active={won && !!puzzle.accent} accent={puzzle.accent} />
 
       {/* Toast */}
       <Toast
