@@ -64,12 +64,24 @@ function dragColor(dark: boolean, accent?: string): string {
   return dark ? '#4ade80' : '#16a34a'
 }
 
+function idleNodeFill(dark: boolean, accent?: string): string {
+  if (accent === '#166534') return dark ? '#14532d' : '#f0fdf4'
+  if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fef2f2'
+  return dark ? '#1e293b' : '#ffffff'
+}
+
+function idleNodeStroke(dark: boolean, accent?: string): string {
+  if (accent === '#166534') return dark ? '#4ade80' : '#86efac'
+  if (accent === '#dc2626') return dark ? '#fca5a5' : '#fca5a5'
+  return dark ? '#4b5563' : '#9ca3af'
+}
+
 function vertexFill(id: number, state: GameState, dark: boolean, accent?: string): string {
   const won = state.status === 'won' || state.status === 'impossible-correct'
   if (won) return wonBg(dark, accent)
   if (id === state.currentVertexId) return dark ? '#1e3a8a' : '#eff6ff'
   if (state.path.includes(id)) return dark ? '#1c3a5c' : '#f0f9ff'
-  return dark ? '#1e293b' : '#ffffff'
+  return idleNodeFill(dark, accent)
 }
 
 function vertexStroke(id: number, state: GameState, isReachable: boolean, isSnapTarget: boolean, dark: boolean, accent?: string): string {
@@ -80,7 +92,7 @@ function vertexStroke(id: number, state: GameState, isReachable: boolean, isSnap
   if (isSnapTarget) return snapStroke(dark, accent)
   if (state.path.includes(id)) return '#60a5fa'
   if (isReachable) return reachableFill(dark, accent)
-  return dark ? '#4b5563' : '#9ca3af'
+  return idleNodeStroke(dark, accent)
 }
 
 function vertexStrokeWidth(id: number, state: GameState, isReachable: boolean, isSnapTarget: boolean): number {

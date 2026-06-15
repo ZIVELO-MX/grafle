@@ -738,7 +738,50 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
   const result: GeneratedPuzzle[] = []
   const blockFamilies = new Set(['star', 'doubleStar'])
 
+  // ── Special house puzzles for Jun 16 (slot 15) and Jun 19 (slot 18) ──
+  const HOUSE_LAYOUT: Pt[] = [
+    { x: 120, y: 120 },  // N1 — top-left
+    { x: 280, y: 120 },  // N2 — top-right
+    { x: 280, y: 280 },  // N3 — bottom-right
+    { x: 120, y: 280 },  // N4 — bottom-left
+    { x: 200, y: 50 },   // N5 — roof peak
+  ]
+  // Easy: square + triangular roof (6 edges, odd vertices N1+N2)
+  const HOUSE_EDGES_EASY = [
+    { from: 1, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 4 },
+    { from: 4, to: 1 }, { from: 1, to: 5 }, { from: 5, to: 2 },
+  ]
+  // Hard: same + diagonal chord N2-N4 (7 edges, odd vertices N1+N4)
+  const HOUSE_EDGES_HARD = [
+    { from: 1, to: 2 }, { from: 2, to: 3 }, { from: 3, to: 4 },
+    { from: 4, to: 1 }, { from: 1, to: 5 }, { from: 5, to: 2 },
+    { from: 2, to: 4 },
+  ]
+  const SPECIAL_SLOTS = new Set([15, 18])
+  const SPECIAL_PUZZLES: Record<number, {
+    difficulty: Difficulty; edges: { from: number; to: number }[]
+    solution: number[]; accent: string; label: string
+  }> = {
+    15: { difficulty: 'easy', edges: HOUSE_EDGES_EASY, solution: [1, 2, 3, 4, 1, 5, 2], accent: '#166534', label: 'house-5' },
+    18: { difficulty: 'hard', edges: HOUSE_EDGES_HARD, solution: [1, 5, 2, 1, 4, 3, 2, 4], accent: '#dc2626', label: 'house-5-hard' },
+  }
+
   for (let i = 0; i < JUNE_SCHEDULE.length; i++) {
+    if (SPECIAL_SLOTS.has(i)) {
+      const sp = SPECIAL_PUZZLES[i]
+      const vertices: Vertex[] = HOUSE_LAYOUT.map((p, idx) => ({ id: idx + 1, x: Math.round(p.x), y: Math.round(p.y) }))
+      const edges: Edge[] = sp.edges.map((e, idx) => ({ id: idx + 1, from: e.from, to: e.to }))
+      const puzzle: GeneratedPuzzle = {
+        id: i + 1, difficulty: sp.difficulty, solvable: true, vertices, edges,
+        officialSolution: sp.solution, _qualityScore: 100,
+        _label: sp.label, _family: 'house', _complexity: sp.edges.length,
+      }
+      ;(puzzle as any).accent = sp.accent
+      console.log(`  #${i + 1} (${JUNE_SCHEDULE[i].date}): ${sp.label} [q=100] [fam=house] [accent=${sp.accent}]`)
+      result.push(puzzle)
+      continue
+    }
+
     const slot = JUNE_SCHEDULE[i]
     const key = `${slot.difficulty}-${slot.solvable}`
     const pool = pools[key]

@@ -20,6 +20,22 @@ Run `npm run generate` to produce a fresh set of puzzles.
 
 ---
 
+## ✅ 0.1. Special Day Puzzles
+
+**Status:** Shipped — June 2026
+
+Certain calendar dates get hand-crafted puzzle shapes with a distinct visual theme:
+
+- Custom graph layout pinned to a specific date slot in the June schedule
+- `accent` color field on the puzzle drives themed node fills, edge colors, and win-state background
+- Confetti fires on solve only for special-day puzzles (gated on `puzzle.accent`)
+- **Jun 16**: house graph (square + triangular roof, easy) — green accent `#166534`
+- **Jun 19**: house graph with diagonal chord (harder) — red accent `#dc2626`
+
+New special days are added by extending `SPECIAL_PUZZLES` in `scripts/generatePuzzles.ts`. The `Graph.tsx` color helpers (`wonBg`, `snapFill`, `reachableFill`, `idleNodeFill`, etc.) already branch on the two accent values.
+
+---
+
 ## 1. Survival Mode
 
 **Status:** Planned
