@@ -1,5 +1,4 @@
 import puzzles from '../data/puzzles'
-import specialPuzzles from '../data/specialPuzzles'
 import type { Puzzle } from '../types'
 
 // Grafle officially starts June 1, 2026 (Puzzle #1). June 1, 2026 is a Monday.
@@ -30,31 +29,20 @@ function getWeekImpossibleSchedule(weekNumber: number): number[] {
 
 export function getPuzzleNumber(date?: Date): number {
   const offset = daysSinceEpoch(date ?? new Date())
-  // Puzzle numbers only exist from Puzzle #1 onward (day 0 = Puzzle #1)
   return Math.max(1, offset + 1)
 }
 
 export function getPuzzleForDate(date?: Date): Puzzle {
   const d = date ?? new Date()
-
-  // Special date check (any year): June 16 and June 19
-  const month = d.getMonth() + 1
-  const day = d.getDate()
-  if (month === 6 && day === 16) return specialPuzzles[0]
-  if (month === 6 && day === 19) return specialPuzzles[1]
-
   const dayOffset = daysSinceEpoch(d)
 
-  // First 14 days (June 1-14): direct mapping to scheduled puzzles
   if (dayOffset >= 0 && dayOffset < puzzles.length) {
     return puzzles[dayOffset]
   }
 
   const weekNumber = Math.floor(dayOffset / 7)
-  // dayOffset % 7 === 0 is Monday (epoch is a Monday)
   const dayOfWeek = ((dayOffset % 7) + 7) % 7
 
-  // Mon–Thu (0–3) = easy/medium; Fri–Sun (4–6) = hard
   const isHard = dayOfWeek >= 4
   const impossibleDays = getWeekImpossibleSchedule(weekNumber)
   const requiredSolvable = !impossibleDays.includes(dayOfWeek)
@@ -69,8 +57,6 @@ export function getPuzzleForDate(date?: Date): Puzzle {
 }
 
 export function getPuzzleById(id: number): Puzzle | null {
-  const special = specialPuzzles.find((p) => p.id === id)
-  if (special) return special
   return puzzles.find((p) => p.id === id) ?? null
 }
 

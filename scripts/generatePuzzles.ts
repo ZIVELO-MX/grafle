@@ -735,8 +735,42 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
   const consumed = new Set<string>()
   const result: GeneratedPuzzle[] = []
   const blockFamilies = new Set(['star', 'doubleStar'])
+  const SPECIAL_SLOTS = new Set([15, 18])
+  const SPECIAL_PUZZLES: Record<number, { difficulty: Difficulty; solvable: boolean; graph: RawGraph; layout: Pt[] }> = {
+    15: { difficulty: 'easy', solvable: true, graph: friendshipGraph(3), layout: friendshipLayout(3) },
+    18: { difficulty: 'hard',  solvable: true, graph: friendshipGraph(5), layout: friendshipLayout(5) },
+  }
 
   for (let i = 0; i < JUNE_SCHEDULE.length; i++) {
+    if (SPECIAL_SLOTS.has(i)) {
+      const sp = SPECIAL_PUZZLES[i]
+      const pts = repairEdgeProximity(
+        repairProximity(sp.layout.map((p) => ({ x: p.x, y: p.y }))),
+        sp.graph.edges
+      )
+      const vertices: Vertex[] = pts.map((p, idx) => ({ id: idx + 1, x: Math.round(p.x), y: Math.round(p.y) }))
+      const edges: Edge[] = sp.graph.edges.map((e, idx) => ({ id: idx + 1, from: e.from, to: e.to }))
+      const solution = findEulerianPath(
+        vertices.map((v) => v.id),
+        edges.map((e) => ({ id: e.id, from: e.from, to: e.to }))
+      )
+      const puzzle: GeneratedPuzzle = {
+        id: i + 1,
+        difficulty: sp.difficulty,
+        solvable: sp.solvable,
+        vertices,
+        edges,
+        officialSolution: solution ?? undefined,
+        _qualityScore: 100,
+        _label: `${sp.solvable ? 'friendship-' + (sp.graph.vertexCount === 7 ? '3' : '5') : ''}`,
+        _family: 'friendship',
+        _complexity: sp.graph.vertexCount,
+      }
+      console.log(`  #${i + 1} (${JUNE_SCHEDULE[i].date}): ${puzzle._label ?? 'friendship'} [q=100] [fam=friendship] [cpx=${puzzle._complexity}]`)
+      result.push(puzzle)
+      continue
+    }
+
     const slot = JUNE_SCHEDULE[i]
     const key = `${slot.difficulty}-${slot.solvable}`
     const pool = pools[key]
