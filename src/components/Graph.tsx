@@ -15,18 +15,23 @@ interface Props {
   darkMode: boolean
 }
 
-function edgeColor(used: boolean, dark: boolean): string {
+function edgeColor(used: boolean, won: boolean, dark: boolean): string {
+  if (used && won) return '#22c55e'
   if (used) return '#3b82f6'
   return dark ? '#374151' : '#d1d5db'
 }
 
 function vertexFill(id: number, state: GameState, dark: boolean): string {
+  const won = state.status === 'won' || state.status === 'impossible-correct'
+  if (won) return dark ? '#14532d' : '#f0fdf4'
   if (id === state.currentVertexId) return dark ? '#1e3a8a' : '#eff6ff'
   if (state.path.includes(id)) return dark ? '#1c3a5c' : '#f0f9ff'
   return dark ? '#1e293b' : '#ffffff'
 }
 
 function vertexStroke(id: number, state: GameState, isReachable: boolean, isSnapTarget: boolean, dark: boolean): string {
+  const won = state.status === 'won' || state.status === 'impossible-correct'
+  if (won) return '#22c55e'
   if (id === state.currentVertexId) return '#2563eb'
   if (id === state.invalidVertexId) return '#ef4444'
   if (isSnapTarget) return dark ? '#86efac' : '#16a34a'
@@ -185,12 +190,13 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
         const from = puzzle.vertices.find((v) => v.id === edge.from)!
         const to = puzzle.vertices.find((v) => v.id === edge.to)!
         const used = state.usedEdgeIds.has(edge.id)
+        const isWon = state.status === 'won' || state.status === 'impossible-correct'
         return (
           <line
             key={edge.id}
             x1={from.x} y1={from.y}
             x2={to.x} y2={to.y}
-            stroke={edgeColor(used, darkMode)}
+            stroke={edgeColor(used, isWon, darkMode)}
             strokeWidth={EDGE_W}
             strokeLinecap="round"
             className="transition-colors duration-300"

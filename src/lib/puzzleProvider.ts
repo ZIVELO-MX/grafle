@@ -24,7 +24,8 @@ const WEEK_IMPOSSIBLE_SCHEDULES: number[][] = [
 ]
 
 function getWeekImpossibleSchedule(weekNumber: number): number[] {
-  return WEEK_IMPOSSIBLE_SCHEDULES[weekNumber % WEEK_IMPOSSIBLE_SCHEDULES.length]
+  const len = WEEK_IMPOSSIBLE_SCHEDULES.length
+  return WEEK_IMPOSSIBLE_SCHEDULES[((weekNumber % len) + len) % len]
 }
 
 export function getPuzzleNumber(date?: Date): number {

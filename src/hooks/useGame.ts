@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { Puzzle, GameState, GameStatus } from '../types'
 import { findEdgeBetween, getUnusedAdjacentEdges } from '../lib/graphUtils'
 import { calculateScore } from '../lib/scoring'
@@ -48,7 +48,17 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
     return initialState()
   })
 
+  // Prevents tap-through: ignore vertex clicks for 300ms after pressing Start
+  const startedAtRef = useRef<number>(0)
+
+  // Track stuck timeout so we can cancel it if user restarts before it fires
+  const stuckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => {
+    if (stuckTimeoutRef.current) {
+      clearTimeout(stuckTimeoutRef.current)
+      stuckTimeoutRef.current = null
+    }
     setState(initialState())
   }, [puzzle.id])
 
@@ -77,10 +87,15 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
       if (prev.status !== 'not-started') return prev
       return { ...prev, status: 'idle' }
     })
+    // Record when Start was pressed to guard against tap-through
+    startedAtRef.current = Date.now()
   }, [])
 
   const handleVertexClick = useCallback(
     (vertexId: number) => {
+      // Guard: ignore clicks for 300ms after pressing Start (tap-through prevention)
+      if (Date.now() - startedAtRef.current < 300) return
+
       setState((prev) => {
         if (
           prev.status === 'won' ||
@@ -117,12 +132,8 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
         const remaining = getUnusedAdjacentEdges(vertexId, puzzle.edges, newUsedEdges)
         const stuck = !allUsed && remaining.length === 0
 
-        let newStatus: GameStatus = 'playing'
-        let endTime: number | null = prev.endTime
-
         if (allUsed) {
-          newStatus = 'won'
-          endTime = Date.now()
+          const endTime = Date.now()
           if (isToday) {
             const elapsed = Math.floor((endTime - (prev.startTime ?? endTime)) / 1000)
             const score = calculateScore(puzzle.difficulty, elapsed)
@@ -142,7 +153,7 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
             path: newPath,
             usedEdgeIds: newUsedEdges,
             currentVertexId: vertexId,
-            status: newStatus,
+            status: 'won',
             endTime,
             invalidVertexId: null,
             stuckVertexId: null,
@@ -150,9 +161,14 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
         }
 
         if (stuck) {
-          // Show stuck indicator first, then after delay decrement lives / reset or lose
-          setTimeout(() => {
+          // Cancel any pending stuck timeout to prevent double life loss
+          if (stuckTimeoutRef.current) {
+            clearTimeout(stuckTimeoutRef.current)
+          }
+          stuckTimeoutRef.current = setTimeout(() => {
+            stuckTimeoutRef.current = null
             setState((s) => {
+              // Only fire if still in playing state (user didn't restart already)
               if (s.status !== 'playing') return s
               const newLives = s.livesRemaining - 1
               if (newLives <= 0) {
@@ -178,7 +194,6 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
                   stuckVertexId: null,
                 }
               }
-              // Reset path but keep graph visible (status: idle)
               return {
                 ...initialState(),
                 livesRemaining: newLives,
@@ -204,8 +219,7 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
           path: newPath,
           usedEdgeIds: newUsedEdges,
           currentVertexId: vertexId,
-          status: newStatus,
-          endTime,
+          status: 'playing',
           invalidVertexId: null,
           stuckVertexId: null,
         }
@@ -266,6 +280,12 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
   }, [puzzle, isToday])
 
   const restart = useCallback(() => {
+    // Cancel any pending stuck timeout to prevent double life loss
+    if (stuckTimeoutRef.current) {
+      clearTimeout(stuckTimeoutRef.current)
+      stuckTimeoutRef.current = null
+    }
+
     setState((prev) => {
       if (
         prev.status === 'won' ||
