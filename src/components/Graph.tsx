@@ -24,22 +24,62 @@ function edgeColor(used: boolean, won: boolean, dark: boolean, accent?: string):
   return dark ? '#374151' : '#d1d5db'
 }
 
-function vertexFill(id: number, state: GameState, dark: boolean): string {
+function wonBg(dark: boolean, accent?: string): string {
+  if (accent === '#166534') return dark ? '#14532d' : '#f0fdf4'
+  if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fef2f2'
+  return dark ? '#14532d' : '#f0fdf4'
+}
+
+function wonStroke(accent?: string): string {
+  return accent ?? '#22c55e'
+}
+
+function snapFill(dark: boolean, accent?: string): string {
+  if (accent === '#166534') return dark ? '#166534' : '#dcfce7'
+  if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fef2f2'
+  return dark ? '#166534' : '#dcfce7'
+}
+
+function snapStroke(dark: boolean, accent?: string): string {
+  if (accent === '#166534') return dark ? '#4ade80' : '#16a34a'
+  if (accent === '#dc2626') return dark ? '#fca5a5' : '#dc2626'
+  return dark ? '#4ade80' : '#16a34a'
+}
+
+function reachableFill(dark: boolean, accent?: string): string {
+  if (accent === '#166534') return dark ? '#14532d' : '#86efac'
+  if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fca5a5'
+  return dark ? '#14532d' : '#86efac'
+}
+
+function reachableRingFill(dark: boolean, accent?: string): string {
+  if (accent === '#166534') return dark ? '#166534' : '#dcfce7'
+  if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fef2f2'
+  return dark ? '#166534' : '#dcfce7'
+}
+
+function dragColor(dark: boolean, accent?: string): string {
+  if (accent === '#166534') return dark ? '#4ade80' : '#16a34a'
+  if (accent === '#dc2626') return dark ? '#fca5a5' : '#dc2626'
+  return dark ? '#4ade80' : '#16a34a'
+}
+
+function vertexFill(id: number, state: GameState, dark: boolean, accent?: string): string {
   const won = state.status === 'won' || state.status === 'impossible-correct'
-  if (won) return dark ? '#14532d' : '#f0fdf4'
+  if (won) return wonBg(dark, accent)
   if (id === state.currentVertexId) return dark ? '#1e3a8a' : '#eff6ff'
   if (state.path.includes(id)) return dark ? '#1c3a5c' : '#f0f9ff'
   return dark ? '#1e293b' : '#ffffff'
 }
 
-function vertexStroke(id: number, state: GameState, isReachable: boolean, isSnapTarget: boolean, dark: boolean): string {
+function vertexStroke(id: number, state: GameState, isReachable: boolean, isSnapTarget: boolean, dark: boolean, accent?: string): string {
   const won = state.status === 'won' || state.status === 'impossible-correct'
-  if (won) return '#22c55e'
+  if (won) return wonStroke(accent)
   if (id === state.currentVertexId) return '#2563eb'
   if (id === state.invalidVertexId) return '#ef4444'
-  if (isSnapTarget) return dark ? '#86efac' : '#16a34a'
+  if (isSnapTarget) return snapStroke(dark, accent)
   if (state.path.includes(id)) return '#60a5fa'
-  if (isReachable) return dark ? '#4ade80' : '#16a34a'
+  if (isReachable) return reachableFill(dark, accent)
   return dark ? '#4b5563' : '#9ca3af'
 }
 
@@ -224,68 +264,18 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
 
   const currentVertex = puzzle.vertices.find((v) => v.id === state.currentVertexId) ?? null
 
-  const showCake = won && puzzle.accent
-
   return (
     <div className="relative w-full h-full">
       <svg
         ref={svgRef}
         viewBox={viewBox}
         className="w-full h-full select-none touch-none"
-        aria-label={showCake ? 'Birthday cake' : 'Puzzle graph'}
+        aria-label="Puzzle graph"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        {showCake ? (
-          <>
-            {/* Cake body (trapezoid) */}
-            <polygon
-              points="50,355 350,355 290,260 110,260"
-              fill={puzzle.accent}
-              fillOpacity={0.08}
-              stroke={puzzle.accent}
-              strokeWidth={3}
-              strokeLinejoin="round"
-            />
-
-            {/* Icing wave */}
-            <path
-              d="M 90,260 Q 110,245 130,260 Q 150,245 170,260 Q 190,245 210,260 Q 230,245 250,260 Q 270,245 310,260"
-              fill="none"
-              stroke={puzzle.accent}
-              strokeWidth={4}
-              strokeLinecap="round"
-            />
-
-            {/* Icing drips */}
-            <path d="M 130,260 Q 130,275 130,285" fill="none" stroke={puzzle.accent} strokeWidth={3} strokeLinecap="round" />
-            <path d="M 210,260 Q 210,278 210,288" fill="none" stroke={puzzle.accent} strokeWidth={3} strokeLinecap="round" />
-            <path d="M 270,260 Q 270,272 270,280" fill="none" stroke={puzzle.accent} strokeWidth={3} strokeLinecap="round" />
-
-            {/* Candle */}
-            <rect x="190" y="110" width="20" height="90" rx="3" fill={puzzle.accent} fillOpacity={0.12} stroke={puzzle.accent} strokeWidth={2.5} />
-
-            {/* Candle stripes */}
-            <line x1="190" y1="135" x2="210" y2="135" stroke={puzzle.accent} strokeWidth={2} />
-            <line x1="190" y1="175" x2="210" y2="175" stroke={puzzle.accent} strokeWidth={2} />
-
-            {/* Flame */}
-            <path d="M 200,110 Q 185,80 200,50 Q 215,80 200,110 Z" fill={puzzle.accent} />
-
-            {/* Flame glow */}
-            <ellipse cx="200" cy="80" rx="25" ry="35" fill={puzzle.accent} fillOpacity={0.08} />
-
-            {/* Deep glow ring */}
-            <ellipse cx="200" cy="80" rx="16" ry="22" fill="none" stroke={puzzle.accent} strokeWidth={6} strokeOpacity={0.15} />
-
-            {/* Plate */}
-            <ellipse cx="200" cy="365" rx="160" ry="14" fill="none" stroke={puzzle.accent} strokeWidth={3} />
-            <ellipse cx="200" cy="365" rx="140" ry="10" fill={puzzle.accent} fillOpacity={0.06} />
-          </>
-        ) : (
-        <>
         {/* Edges — hit layer */}
         {puzzle.edges.map((edge) => {
           const from = puzzle.vertices.find((v) => v.id === edge.from)!
@@ -374,7 +364,7 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
               y2={snapTarget !== null
                 ? (puzzle.vertices.find(v => v.id === snapTarget)?.y ?? dragTip.y)
                 : dragTip.y}
-              stroke={darkMode ? '#4ade80' : '#16a34a'}
+              stroke={dragColor(darkMode, puzzle.accent)}
               strokeWidth={10}
               strokeLinecap="round"
               opacity={0.15}
@@ -388,7 +378,7 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
                 ? (puzzle.vertices.find(v => v.id === snapTarget)?.y ?? dragTip.y)
                 : dragTip.y}
               stroke={snapTarget !== null
-                ? (darkMode ? '#4ade80' : '#16a34a')
+                ? dragColor(darkMode, puzzle.accent)
                 : '#94a3b8'}
               strokeWidth={3}
               strokeLinecap="round"
@@ -413,8 +403,8 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
                 <circle
                   cx={v.x} cy={v.y}
                   r={VERTEX_R + 12}
-                  fill={darkMode ? '#166534' : '#dcfce7'}
-                  stroke={darkMode ? '#4ade80' : '#16a34a'}
+                  fill={snapFill(darkMode, puzzle.accent)}
+                  stroke={snapStroke(darkMode, puzzle.accent)}
                   strokeWidth={3}
                 />
               )}
@@ -424,15 +414,15 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
                   <circle
                     cx={v.x} cy={v.y}
                     r={VERTEX_R + 16}
-                    fill={darkMode ? '#14532d' : '#86efac'}
+                    fill={reachableFill(darkMode, puzzle.accent)}
                     opacity={0.55}
                     className="animate-pulse"
                   />
                   <circle
                     cx={v.x} cy={v.y}
                     r={VERTEX_R + 8}
-                    fill={darkMode ? '#166534' : '#dcfce7'}
-                    stroke={darkMode ? '#4ade80' : '#16a34a'}
+                    fill={reachableRingFill(darkMode, puzzle.accent)}
+                    stroke={reachableFill(darkMode, puzzle.accent)}
                     strokeWidth={2.5}
                   />
                 </>
@@ -451,8 +441,8 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
               <circle
                 cx={v.x} cy={v.y}
                 r={VERTEX_R}
-                fill={vertexFill(v.id, state, darkMode)}
-                stroke={vertexStroke(v.id, state, isReachable, isSnapTgt, darkMode)}
+                fill={vertexFill(v.id, state, darkMode, puzzle.accent)}
+                stroke={vertexStroke(v.id, state, isReachable, isSnapTgt, darkMode, puzzle.accent)}
                 strokeWidth={vertexStrokeWidth(v.id, state, isReachable, isSnapTgt)}
                 className={[
                   'transition-all duration-150',
@@ -462,8 +452,6 @@ export default function Graph({ puzzle, state, onVertexClick, darkMode }: Props)
             </g>
           )
         })}
-        </>
-        )}
       </svg>
 
       {/* Zoom controls overlay */}

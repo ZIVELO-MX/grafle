@@ -75,9 +75,11 @@ interface GeneratedPuzzle {
   _complexity?: number
 }
 
+interface RawEdge { from: number; to: number; curve?: number }
+
 interface RawGraph {
   vertexCount: number
-  edges: { from: number; to: number }[]
+  edges: RawEdge[]
 }
 
 interface Pt { x: number; y: number }
@@ -735,92 +737,8 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
   const consumed = new Set<string>()
   const result: GeneratedPuzzle[] = []
   const blockFamilies = new Set(['star', 'doubleStar'])
-  // ── Birthday cake puzzles ──────────────────────────────────────────
-  // Symbolic cake: N3(flame)→N2(candle)→N1(cake)→N4,N5,N6(decor),N7(base)
-  // Eulerian chords added so all vertices have even degree.
-  // Layout carefully avoids any edge passing through a non-incident vertex.
-  const CAKE_LAYOUT: Pt[] = [
-    { x: 200, y: 200 },  // 1 — N1 cake body
-    { x: 180, y: 90 },   // 2 — N2 candle (left stagger)
-    { x: 200, y: 30 },   // 3 — N3 flame (centre top)
-    { x: 60, y: 180 },   // 4 — N4 left decoration
-    { x: 280, y: 280 },  // 5 — N5 centre decoration (right)
-    { x: 340, y: 180 },  // 6 — N6 right decoration
-    { x: 180, y: 350 },  // 7 — N7 base (left stagger)
-  ]
-  // Only shared x/y pairs: x=200(N1+N3), x=180(N2+N7), y=180(N4+N6) — 2 each, OK.
-
-  // All edges straight (curve: 0) — no angles, no false intersections.
-  const CAKE_EDGES_EASY: { from: number; to: number }[] = [
-    { from: 3, to: 2 },  // N3-N2 flame-candle
-    { from: 2, to: 1 },  // N2-N1 candle-cake
-    { from: 1, to: 4 },  // N1-N4 cake-left decor
-    { from: 1, to: 6 },  // N1-N6 cake-right decor
-    { from: 4, to: 5 },  // N4-N5 left decor-centre decor
-    { from: 5, to: 6 },  // N5-N6 centre decor-right decor
-    { from: 5, to: 7 },  // N5-N7 centre decor-base
-    { from: 3, to: 5 },  // N3-N5 Eulerian chord (flame→decor)
-    { from: 1, to: 7 },  // N1-N7 Eulerian chord (cake→base)
-  ]
-  const CAKE_SOLUTION_EASY = [1, 2, 3, 5, 4, 1, 7, 5, 6, 1]
-
-  // Hard: same base + 4 extra chords
-  const CAKE_EDGES_HARD: { from: number; to: number }[] = [
-    ...CAKE_EDGES_EASY,
-    { from: 2, to: 4 },  // N2-N4 candle-left decor
-    { from: 2, to: 6 },  // N2-N6 candle-right decor
-    { from: 4, to: 7 },  // N4-N7 left decor-base
-    { from: 6, to: 7 },  // N6-N7 right decor-base
-  ]
-  const CAKE_SOLUTION_HARD = [1, 2, 3, 5, 4, 7, 6, 1, 4, 2, 6, 5, 7, 1]
-
-  const SPECIAL_SLOTS = new Set([15, 18])
-  const SPECIAL_PUZZLES: Record<number, {
-    difficulty: Difficulty; solvable: boolean; graph: RawGraph; layout: Pt[]
-    solution: number[]; accent: string
-  }> = {
-    15: {
-      difficulty: 'easy', solvable: true,
-      graph: { vertexCount: 7, edges: CAKE_EDGES_EASY },
-      layout: CAKE_LAYOUT,
-      solution: CAKE_SOLUTION_EASY,
-      accent: '#166534',
-    },
-    18: {
-      difficulty: 'hard',  solvable: true,
-      graph: { vertexCount: 7, edges: CAKE_EDGES_HARD },
-      layout: CAKE_LAYOUT,
-      solution: CAKE_SOLUTION_HARD,
-      accent: '#dc2626',
-    },
-  }
 
   for (let i = 0; i < JUNE_SCHEDULE.length; i++) {
-    if (SPECIAL_SLOTS.has(i)) {
-      const sp = SPECIAL_PUZZLES[i]
-      const pts = sp.layout.map((p) => ({ x: p.x, y: p.y }))
-      const vertices: Vertex[] = pts.map((p, idx) => ({ id: idx + 1, x: Math.round(p.x), y: Math.round(p.y) }))
-      const edges: Edge[] = sp.graph.edges.map((e, idx) => ({
-        id: idx + 1, from: e.from, to: e.to,
-      }))
-      const puzzle: GeneratedPuzzle = {
-        id: i + 1,
-        difficulty: sp.difficulty,
-        solvable: sp.solvable,
-        vertices,
-        edges,
-        officialSolution: sp.solution,
-        _qualityScore: 100,
-        _label: `cake-${sp.graph.vertexCount}`,
-        _family: 'cake',
-        _complexity: sp.graph.vertexCount,
-      }
-      ;(puzzle as any).accent = sp.accent
-      console.log(`  #${i + 1} (${JUNE_SCHEDULE[i].date}): ${puzzle._label} [q=100] [fam=cake] [cpx=${puzzle._complexity}]`)
-      result.push(puzzle)
-      continue
-    }
-
     const slot = JUNE_SCHEDULE[i]
     const key = `${slot.difficulty}-${slot.solvable}`
     const pool = pools[key]
