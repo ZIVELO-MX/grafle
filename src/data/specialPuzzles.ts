@@ -5,7 +5,7 @@ import type { Puzzle } from '../types'
 // Symmetric like a 3-leaf clover — celebratory feel
 const june16: Puzzle = {
   id: 16,
-  difficulty: 'hard',
+  difficulty: 'easy',
   solvable: true,
   isSpecial: true,
   specialDate: '06-16',

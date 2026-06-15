@@ -186,6 +186,58 @@ function repairProximity(verts: Pt[], margin = 35, minDist = 50): Pt[] {
   return pts
 }
 
+function repairEdgeProximity(verts: Pt[], edges: { from: number; to: number }[], minDist = 22, margin = 35): Pt[] {
+  const pts: Pt[] = verts.map((p) => ({ x: p.x, y: p.y }))
+  const lo = margin, hi = 400 - margin
+  for (let iter = 0; iter < 30; iter++) {
+    let moved = false
+    for (const e of edges) {
+      const i1 = e.from - 1, i2 = e.to - 1
+      const dx = pts[i2].x - pts[i1].x, dy = pts[i2].y - pts[i1].y
+      const len2 = dx * dx + dy * dy
+      if (len2 < 1) continue
+      for (let vi = 0; vi < pts.length; vi++) {
+        if (vi === i1 || vi === i2) continue
+        const origX = pts[vi].x, origY = pts[vi].y
+        if (origX < lo || origX > hi || origY < lo || origY > hi) continue
+        const t = Math.max(0, Math.min(1, ((origX - pts[i1].x) * dx + (origY - pts[i1].y) * dy) / len2))
+        const projX = pts[i1].x + t * dx, projY = pts[i1].y + t * dy
+        const dist = Math.hypot(origX - projX, origY - projY)
+        if (dist >= minDist) continue
+        const push = (minDist - dist) + 8
+        const nx = origX - projX, ny = origY - projY
+        const nd = Math.hypot(nx, ny)
+        if (nd > 0.01) {
+          pts[vi].x = Math.max(lo, Math.min(hi, origX + (nx / nd) * push))
+          pts[vi].y = Math.max(lo, Math.min(hi, origY + (ny / nd) * push))
+        }
+        const actualMove = Math.hypot(pts[vi].x - origX, pts[vi].y - origY)
+        if (actualMove < push * 0.5) {
+          const shift = push * 1.5
+          const perpX = pts[i2].y - pts[i1].y, perpY = pts[i1].x - pts[i2].x
+          const perpLen = Math.hypot(perpX, perpY)
+          if (perpLen > 0.01) {
+            let dir: number
+            if (nd > 0.01) {
+              dir = (nx * perpX + ny * perpY) >= 0 ? -1 : 1
+            } else {
+              const towardCenter = (200 - origX) * perpX + (200 - origY) * perpY
+              dir = towardCenter >= 0 ? 1 : -1
+            }
+            pts[i1].x = Math.max(lo, Math.min(hi, pts[i1].x + dir * (perpX / perpLen) * shift))
+            pts[i1].y = Math.max(lo, Math.min(hi, pts[i1].y + dir * (perpY / perpLen) * shift))
+            pts[i2].x = Math.max(lo, Math.min(hi, pts[i2].x + dir * (perpX / perpLen) * shift))
+            pts[i2].y = Math.max(lo, Math.min(hi, pts[i2].y + dir * (perpY / perpLen) * shift))
+          }
+        }
+        moved = true
+      }
+    }
+    if (!moved) break
+  }
+  return pts
+}
+
 function breakFalseAlignments(verts: Pt[], rawEdges: { from: number; to: number }[], margin = 35): Pt[] {
   const pts: Pt[] = verts.map((p) => ({ x: p.x, y: p.y }))
   const TOL = 8
@@ -240,8 +292,9 @@ function buildPuzzle(cand: Candidate, nextId: number): GeneratedPuzzle | null {
   if (pts.length !== n) return null
 
   const deAligned = breakFalseAlignments(pts, raw.edges)
-  const fixed = repairProximity(deAligned)
-  const vertices: Vertex[] = fixed.map((p, i) => ({ id: i + 1, x: Math.round(p.x), y: Math.round(p.y) }))
+  const proxFixed = repairProximity(deAligned)
+  const edgeFixed = repairEdgeProximity(proxFixed, raw.edges)
+  const vertices: Vertex[] = edgeFixed.map((p, i) => ({ id: i + 1, x: Math.round(p.x), y: Math.round(p.y) }))
   const edges: Edge[] = raw.edges.map((e, i) => ({ id: i + 1, from: e.from, to: e.to }))
   const vertexIds = vertices.map((v) => v.id)
   const solvable = isSolvable(vertexIds, raw.edges)
