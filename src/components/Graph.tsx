@@ -76,21 +76,45 @@ function idleNodeStroke(dark: boolean, accent?: string): string {
   return dark ? '#4b5563' : '#9ca3af'
 }
 
+function activeNodeFill(dark: boolean, accent?: string): string {
+  if (accent === '#166534') return dark ? '#166534' : '#dcfce7'
+  if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fee2e2'
+  return dark ? '#1e3a8a' : '#eff6ff'
+}
+
+function activeNodeStroke(accent?: string): string {
+  if (accent === '#166534') return '#16a34a'
+  if (accent === '#dc2626') return '#dc2626'
+  return '#2563eb'
+}
+
+function pathNodeFill(dark: boolean, accent?: string): string {
+  if (accent === '#166534') return dark ? '#14532d' : '#bbf7d0'
+  if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fecaca'
+  return dark ? '#1c3a5c' : '#f0f9ff'
+}
+
+function pathNodeStroke(accent?: string): string {
+  if (accent === '#166534') return '#4ade80'
+  if (accent === '#dc2626') return '#f87171'
+  return '#60a5fa'
+}
+
 function vertexFill(id: number, state: GameState, dark: boolean, accent?: string): string {
   const won = state.status === 'won' || state.status === 'impossible-correct'
   if (won) return wonBg(dark, accent)
-  if (id === state.currentVertexId) return dark ? '#1e3a8a' : '#eff6ff'
-  if (state.path.includes(id)) return dark ? '#1c3a5c' : '#f0f9ff'
+  if (id === state.currentVertexId) return activeNodeFill(dark, accent)
+  if (state.path.includes(id)) return pathNodeFill(dark, accent)
   return idleNodeFill(dark, accent)
 }
 
 function vertexStroke(id: number, state: GameState, isReachable: boolean, isSnapTarget: boolean, dark: boolean, accent?: string): string {
   const won = state.status === 'won' || state.status === 'impossible-correct'
   if (won) return wonStroke(accent)
-  if (id === state.currentVertexId) return '#2563eb'
+  if (id === state.currentVertexId) return activeNodeStroke(accent)
   if (id === state.invalidVertexId) return '#ef4444'
   if (isSnapTarget) return snapStroke(dark, accent)
-  if (state.path.includes(id)) return '#60a5fa'
+  if (state.path.includes(id)) return pathNodeStroke(accent)
   if (isReachable) return reachableFill(dark, accent)
   return idleNodeStroke(dark, accent)
 }
