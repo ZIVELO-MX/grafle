@@ -100,39 +100,32 @@ export function concentricLayout(
   return [...inner, ...outer]
 }
 
-/** Theta layout: 2 poles + internal vertices on 3 vertically-offset curves */
+/** Theta layout: 2 poles + internal vertices on 3 vertically-staggered arcs */
 export function thetaLayout(k1: number, k2: number, k3: number): Pt[] {
   const pts: Pt[] = []
-  const yMid = CY
-  const poleOffset = 50
-  // Poles offset vertically so no path overlaps them
-  pts.push({ x: 70, y: r(CY - poleOffset) })    // pole 1 above center
-  pts.push({ x: 330, y: r(CY + poleOffset) })   // pole 2 below center
+  const cy = CY
+  const poleAX = 45
+  const poleBX = 355
+  const xRange = poleBX - poleAX
 
-  function curvePoints(count: number, yOffset: number): Pt[] {
-    if (count === 0) return []
-    const spacing = 240 / (count + 1)
-    return Array.from({ length: count }, (_, i) => ({
-      x: r(80 + (i + 1) * spacing),
-      y: r(yMid + yOffset),
-    }))
-  }
+  // Poles offset vertically for visual separation
+  pts.push({ x: poleAX, y: r(cy - 100) })   // pole A (top-left)
+  pts.push({ x: poleBX, y: r(cy + 100) })   // pole B (bottom-right)
 
-  // Three paths with slight arc (y varies by path position and x position)
-  function arcPoints(count: number, baseY: number, arch: number): Pt[] {
+  function arcPoints(count: number, baseY: number, arch: number, xShift: number): Pt[] {
     if (count === 0) return []
-    const spacing = 240 / (count + 1)
+    const spacing = xRange / (count + 1)
     return Array.from({ length: count }, (_, i) => {
       const t = (i + 1) / (count + 1)
-      const x = 80 + i * spacing
+      const x = poleAX + (i + 1) * spacing + xShift
       const arc = arch * Math.sin(t * Math.PI)
       return { x: r(x), y: r(baseY + arc) }
     })
   }
 
-  pts.push(...arcPoints(k1 - 1, yMid - 110, -15))
-  pts.push(...arcPoints(k2 - 1, yMid - 15, -10))
-  pts.push(...arcPoints(k3 - 1, yMid + 80, 15))
+  pts.push(...arcPoints(k1 - 1, cy - 50, -12, -12))
+  pts.push(...arcPoints(k2 - 1, cy, -6, 0))
+  pts.push(...arcPoints(k3 - 1, cy + 50, 12, 12))
   return pts
 }
 

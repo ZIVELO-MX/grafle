@@ -84,7 +84,7 @@ export function scoreVisualQuality(
     for (let j = i + 1; j < vertices.length; j++) {
       const d = Math.hypot(vertices[i].x - vertices[j].x, vertices[i].y - vertices[j].y)
       if (d < MIN_VERTEX_SEP) {
-        score -= 20 - d
+        score -= Math.max(0, MIN_VERTEX_SEP - d) * 0.8
       }
     }
   }

@@ -159,12 +159,40 @@ interface Candidate {
   label: string
 }
 
+function repairProximity(verts: Pt[], margin = 35, minDist = 50): Pt[] {
+  const pts: Pt[] = verts.map((p) => ({ x: p.x, y: p.y }))
+  const W = 400, H = 400
+  for (let iter = 0; iter < 30; iter++) {
+    let moved = false
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[i].x - pts[j].x
+        const dy = pts[i].y - pts[j].y
+        const dist = Math.hypot(dx, dy)
+        if (dist < minDist && dist > 0.01) {
+          const push = (minDist - dist) / 2
+          const nx = (dx / dist) * push
+          const ny = (dy / dist) * push
+          pts[i].x = Math.max(margin, Math.min(W - margin, pts[i].x + nx))
+          pts[i].y = Math.max(margin, Math.min(H - margin, pts[i].y + ny))
+          pts[j].x = Math.max(margin, Math.min(W - margin, pts[j].x - nx))
+          pts[j].y = Math.max(margin, Math.min(H - margin, pts[j].y - ny))
+          moved = true
+        }
+      }
+    }
+    if (!moved) break
+  }
+  return pts
+}
+
 function buildPuzzle(cand: Candidate, nextId: number): GeneratedPuzzle | null {
   const { raw, pts } = cand
   const n = raw.vertexCount
   if (pts.length !== n) return null
 
-  const vertices: Vertex[] = pts.map((p, i) => ({ id: i + 1, x: p.x, y: p.y }))
+  const fixed = repairProximity(pts)
+  const vertices: Vertex[] = fixed.map((p, i) => ({ id: i + 1, x: Math.round(p.x), y: Math.round(p.y) }))
   const edges: Edge[] = raw.edges.map((e, i) => ({ id: i + 1, from: e.from, to: e.to }))
   const vertexIds = vertices.map((v) => v.id)
   const solvable = isSolvable(vertexIds, raw.edges)
@@ -559,13 +587,13 @@ function generateJuneSchedule(): Array<{ difficulty: Difficulty; solvable: boole
   const days: Array<{ difficulty: Difficulty; solvable: boolean; date: string }> = []
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-  // Impossible slots per week (day-of-week index, 0=Mon)
+  // Exactly 2 impossible days per full week, non-consecutive, not both on weekend
   const weekImpossible: number[][] = [
-    [],       // week 1 (days 1-7)
-    [0],      // week 2 (days 8-14)  — Mon
-    [2],      // week 3 (days 15-21) — Wed
-    [0, 3],   // week 4 (days 22-28) — Mon, Thu
-    [],       // week 5 (days 29-30) — partial
+    [0, 2],   // week 1 (days 1-7)   — Mon + Wed
+    [1, 3],   // week 2 (days 8-14)  — Tue + Thu
+    [0, 4],   // week 3 (days 15-21) — Mon + Fri
+    [2, 5],   // week 4 (days 22-28) — Wed + Sat
+    [0],      // week 5 (days 29-30) — partial, Mon only
   ]
 
   for (let day = 1; day <= 30; day++) {
