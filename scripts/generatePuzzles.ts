@@ -43,6 +43,25 @@ interface Edge { id: number; from: number; to: number }
 
 type Difficulty = 'easy' | 'hard'
 
+function computeComplexity(vertexIds: number[], edges: { from: number; to: number }[]): number {
+  const n = vertexIds.length
+  const e = edges.length
+  if (n === 0 || e === 0) return 0
+  const deg = getVertexDegrees(vertexIds, edges)
+  const maxDeg = Math.max(...deg.values())
+  const branchNodes = [...deg.values()].filter((d) => d >= 3).length
+  const cyclomatic = e - n + 1
+  const density = e / n
+
+  let score = 0
+  score += density * 8
+  score += branchNodes * 2.5
+  score += Math.max(0, maxDeg - 3) * 4
+  score += cyclomatic * 2
+  score += Math.log2(n) * 3
+  return Math.round(score * 10) / 10
+}
+
 interface GeneratedPuzzle {
   id: number
   difficulty: Difficulty
@@ -52,6 +71,8 @@ interface GeneratedPuzzle {
   officialSolution?: number[]
   _qualityScore?: number
   _label?: string
+  _family?: string
+  _complexity?: number
 }
 
 interface RawGraph {
@@ -164,11 +185,21 @@ function buildPuzzle(cand: Candidate, nextId: number): GeneratedPuzzle | null {
     officialSolution = sol
   }
 
-  const difficulty: Difficulty = n <= 10 && edges.length <= 15 ? 'easy' : 'hard'
+  const comp = computeComplexity(vertexIds, raw.edges)
+  const difficulty: Difficulty = comp <= 35 ? 'easy' : 'hard'
 
   const qualityVertices = vertices.map((v) => ({ x: v.x, y: v.y }))
   const qualityEdges = edges.map((e) => ({ from: e.from, to: e.to }))
   const qualityScore = scoreVisualQuality(qualityVertices, qualityEdges)
+
+  const label = cand.label ?? ''
+  let family = label.replace(/-?\d+.*$/, '').replace(/-s\d+$/, '').replace(/-\w+$/, '')
+  if (family.startsWith('erdos') || family.startsWith('watts') || family.startsWith('barabasi') ||
+      family.startsWith('regular') || family.startsWith('bipartite')) family = 'random'
+  else if (family.startsWith('k') && family.length <= 3) family = 'classic'
+  else if (['petersen','cube','octa','wagner','chvatal','herschel','franklin',
+    'mobius','pappus','desargues','grotzsch','folkman','robertson',
+    'hypercube','product'].some((n) => family.startsWith(n))) family = 'classic'
 
   return {
     id: nextId,
@@ -179,6 +210,8 @@ function buildPuzzle(cand: Candidate, nextId: number): GeneratedPuzzle | null {
     officialSolution,
     _qualityScore: qualityScore,
     _label: cand.label,
+    _family: family,
+    _complexity: comp,
   }
 }
 
@@ -343,16 +376,14 @@ function allCandidates(): Candidate[] {
   }
 
   const thetaVariants: [number, number, number][] = [
-    [2, 2, 2], [2, 2, 3], [2, 3, 3], [2, 2, 4], [2, 3, 4], [3, 3, 3],
-    [2, 4, 4], [3, 3, 4], [2, 3, 5], [2, 4, 5],
-    [3, 4, 4], [3, 3, 5], [2, 5, 5], [4, 4, 4],
-    [3, 4, 5], [4, 4, 5], [3, 5, 5],
+    [2, 2, 2], [2, 2, 3], [2, 3, 3], [2, 2, 4],
+    [3, 3, 3], [2, 4, 4], [3, 4, 5],
   ]
   for (const [k1, k2, k3] of thetaVariants) {
     list.push(makeCand(thetaGraph(k1, k2, k3), thetaLayout(k1, k2, k3), `theta-${k1}-${k2}-${k3}`))
   }
 
-  for (const [n, k] of [[3, 2], [4, 2], [4, 3], [5, 2], [3, 3], [5, 3], [6, 2]] as [number, number][]) {
+  for (const [n, k] of [[3, 2], [4, 3], [5, 2], [6, 2]] as [number, number][]) {
     list.push(makeCand(lollipopGraph(n, k), lollipopLayout(n, k), `lollipop-${n}-${k}`))
   }
 
@@ -542,6 +573,8 @@ const JUNE_SCHEDULE: Array<{ difficulty: Difficulty; solvable: boolean; date: st
 ]
 
 function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
+  const DIVERSITY_WINDOW = 3
+
   const byQ = (a: GeneratedPuzzle, b: GeneratedPuzzle) =>
     (b._qualityScore ?? 0) - (a._qualityScore ?? 0)
 
@@ -557,35 +590,46 @@ function selectForSchedule(all: GeneratedPuzzle[]): GeneratedPuzzle[] {
     console.log(`  ${k}: ${v.length} candidates`)
   }
 
-  if (pools['easy-false'].length === 0) {
-    console.warn('  WARNING: No easy impossible puzzles! Selecting from hard-false as fallback.')
-  }
-
-  const cursors: Record<string, number> = {
-    'easy-true': 0, 'easy-false': 0, 'hard-true': 0, 'hard-false': 0,
-  }
-
-  console.log('\nSelecting for schedule:')
+  const recentFamilies: string[] = []
+  const consumed = new Set<string>()
   const result: GeneratedPuzzle[] = []
 
   for (let i = 0; i < JUNE_SCHEDULE.length; i++) {
     const slot = JUNE_SCHEDULE[i]
     const key = `${slot.difficulty}-${slot.solvable}`
     const pool = pools[key]
-    const c = cursors[key]
-
-    if (c >= pool.length && ['easy-false', 'hard-false'].includes(key) && pool.length > 0) {
-      cursors[key] = 0
-    }
-
-    const cursor = cursors[key]
-    if (cursor >= pool.length) {
+    if (!pool || pool.length === 0) {
       throw new Error(`Not enough ${key} candidates for slot ${i + 1} (${slot.date})`)
     }
 
-    const picked = pool[cursor]
-    cursors[key]++
-    console.log(`  #${i + 1} (${slot.date}): ${picked._label ?? 'unknown'} [q=${picked._qualityScore ?? '?'}]`)
+    const lastFamilies = new Set(recentFamilies.slice(-DIVERSITY_WINDOW))
+
+    let picked: GeneratedPuzzle | null = null
+    for (const candidate of pool) {
+      const idKey = `${candidate._family ?? ''}:${candidate._label ?? ''}`
+      if (consumed.has(idKey)) continue
+      const family = candidate._family ?? 'unknown'
+      if (!lastFamilies.has(family)) {
+        picked = candidate
+        break
+      }
+    }
+
+    if (!picked) {
+      for (const candidate of pool) {
+        const idKey = `${candidate._family ?? ''}:${candidate._label ?? ''}`
+        if (consumed.has(idKey)) continue
+        picked = candidate
+        break
+      }
+    }
+
+    if (!picked) throw new Error(`No available ${key} candidates for slot ${i + 1}`)
+
+    const idKey = `${picked._family ?? ''}:${picked._label ?? ''}`
+    consumed.add(idKey)
+    recentFamilies.push(picked._family ?? 'unknown')
+    console.log(`  #${i + 1} (${slot.date}): ${picked._label ?? 'unknown'} [q=${picked._qualityScore ?? '?'}] [fam=${picked._family ?? '?'}] [cpx=${picked._complexity ?? '?'}]`)
     result.push({ ...picked, id: i + 1 })
   }
 

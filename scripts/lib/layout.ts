@@ -100,23 +100,39 @@ export function concentricLayout(
   return [...inner, ...outer]
 }
 
-/** Theta layout: 2 poles + internal vertices on 3 parallel curves */
+/** Theta layout: 2 poles + internal vertices on 3 vertically-offset curves */
 export function thetaLayout(k1: number, k2: number, k3: number): Pt[] {
   const pts: Pt[] = []
-  // Poles at left and right
-  pts.push({ x: 70, y: CY })   // pole 1
-  pts.push({ x: 330, y: CY })  // pole 2
+  const yMid = CY
+  const poleOffset = 50
+  // Poles offset vertically so no path overlaps them
+  pts.push({ x: 70, y: r(CY - poleOffset) })    // pole 1 above center
+  pts.push({ x: 330, y: r(CY + poleOffset) })   // pole 2 below center
 
   function curvePoints(count: number, yOffset: number): Pt[] {
     if (count === 0) return []
-    const xs = Array.from({ length: count }, (_, i) => r(70 + (260 * (i + 1)) / (count + 1)))
-    return xs.map((x) => ({ x, y: r(CY + yOffset) }))
+    const spacing = 240 / (count + 1)
+    return Array.from({ length: count }, (_, i) => ({
+      x: r(80 + (i + 1) * spacing),
+      y: r(yMid + yOffset),
+    }))
   }
 
-  // Three paths: top, middle, bottom
-  pts.push(...curvePoints(k1 - 1, -105))
-  pts.push(...curvePoints(k2 - 1, 0))
-  pts.push(...curvePoints(k3 - 1, 105))
+  // Three paths with slight arc (y varies by path position and x position)
+  function arcPoints(count: number, baseY: number, arch: number): Pt[] {
+    if (count === 0) return []
+    const spacing = 240 / (count + 1)
+    return Array.from({ length: count }, (_, i) => {
+      const t = (i + 1) / (count + 1)
+      const x = 80 + i * spacing
+      const arc = arch * Math.sin(t * Math.PI)
+      return { x: r(x), y: r(baseY + arc) }
+    })
+  }
+
+  pts.push(...arcPoints(k1 - 1, yMid - 110, -15))
+  pts.push(...arcPoints(k2 - 1, yMid - 15, -10))
+  pts.push(...arcPoints(k3 - 1, yMid + 80, 15))
   return pts
 }
 
