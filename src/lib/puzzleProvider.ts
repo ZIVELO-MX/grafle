@@ -5,7 +5,9 @@ import type { Puzzle } from '../types'
 const EPOCH = new Date('2026-06-01T00:00:00Z')
 
 function daysSinceEpoch(date: Date): number {
-  return Math.floor((date.getTime() - EPOCH.getTime()) / 86400000)
+  // Use local date components so the puzzle changes at midnight LOCAL time
+  const localMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  return Math.floor((localMidnight.getTime() - EPOCH.getTime()) / 86400000)
 }
 
 // Returns weekday indices (0=Mon…6=Sun) that are impossible for a given week.
