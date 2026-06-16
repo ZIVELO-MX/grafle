@@ -15,5 +15,6 @@ export function generateShareText(
   const maxScores = { easy: 1000, medium: 2000, hard: 3000 }
   const symbols = scoreSymbols(score, maxScores[difficulty])
   const time = formatTime(elapsedSeconds)
-  return `Grafle #${puzzleNumber}\n\n${symbols}\nTime ${time}\nScore ${score}\n\ngrafle.com`
+  const appUrl = import.meta.env.VITE_APP_URL ?? 'https://grafle.com'
+  return `Grafle #${puzzleNumber}\n\n${symbols}\nTime ${time}\nScore ${score}\n\n${appUrl}`
 }

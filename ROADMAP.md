@@ -36,6 +36,20 @@ New special days are added by extending `SPECIAL_PUZZLES` in `scripts/generatePu
 
 ---
 
+## 0.2. Impossible Button — Confirmation + Penalty
+
+**Status:** Planned
+
+Improve the UX and stakes of the "Impossible" button to make it a meaningful risk:
+
+- **Confirmation dialog**: pressing "Impossible" shows a modal asking the player to confirm. This prevents accidental presses and makes the decision feel deliberate.
+- **All-lives penalty**: if the player confirms and the puzzle is actually solvable, they lose all remaining lives at once (instant game over). This makes the Impossible button a high-risk call, not a free guess.
+- **Ran-out-of-lives + was impossible**: if a player loses all their lives through normal attempts and the puzzle turns out to be impossible, show a 😂 emoji with a message indicating the puzzle was in fact impossible (e.g. "That one was impossible — you couldn't have solved it!"). This rewards players who suspected it but ran out of lives trying.
+
+The current `ImpossibleButton` component and `handleImpossible` hook logic are the entry points for this change.
+
+---
+
 ## 1. Survival Mode
 
 **Status:** Planned
