@@ -15,6 +15,7 @@ import MenuDrawer from './components/modals/MenuDrawer'
 import CompletionModal from './components/modals/CompletionModal'
 import StatsModal from './components/modals/StatsModal'
 import RankingsModal from './components/modals/RankingsModal'
+import ConfirmImpossibleModal from './components/modals/ConfirmImpossibleModal'
 import { I18nContext, translations } from './i18n'
 import { useGame } from './hooks/useGame'
 import {
@@ -53,6 +54,7 @@ function buildCompletedState(puzzle: Puzzle, usedImpossible: boolean): GameState
     invalidVertexId: null,
     stuckVertexId: null,
     livesRemaining: 3,
+    lostByImpossible: false,
   }
 }
 
@@ -234,7 +236,11 @@ export default function App() {
         {/* Game over message */}
         {lost && (
           <div className="text-center px-4 py-2 min-h-[2rem]">
-            <p className="text-xs text-rose-500 font-medium">{t.game_over}</p>
+            {state.lostByImpossible ? (
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{t.lost_by_impossible}</p>
+            ) : !puzzle.solvable ? null : (
+              <p className="text-xs text-rose-500 font-medium">{t.game_over}</p>
+            )}
           </div>
         )}
 
@@ -252,7 +258,7 @@ export default function App() {
           <div className="flex justify-center pb-8 pt-2">
             <ImpossibleButton
               status={state.status}
-              onImpossible={handleImpossible}
+              onImpossible={() => openModal('impossible-confirm')}
               onRestart={restart}
             />
           </div>
@@ -289,6 +295,11 @@ export default function App() {
       />
       <StatsModal open={modal === 'stats'} onClose={closeModal} />
       <RankingsModal open={modal === 'rankings'} onClose={closeModal} />
+      <ConfirmImpossibleModal
+        open={modal === 'impossible-confirm'}
+        onConfirm={() => { closeModal(); handleImpossible() }}
+        onCancel={closeModal}
+      />
     </I18nContext.Provider>
   )
 }

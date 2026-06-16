@@ -70,6 +70,14 @@ const es = {
   // Lives & game over
   life_lost: '¡Vida perdida!',
   game_over: 'Sin vidas restantes',
+  lost_by_impossible: 'Error — este puzzle SÍ tiene solución.',
+  lost_but_was_impossible: 'Ese sí era imposible.',
+
+  // Impossible confirm modal
+  impossible_confirm_title: '¿Estás seguro?',
+  impossible_confirm_body: 'Si el puzzle tiene solución, perderás todas tus vidas al instante.',
+  impossible_confirm_yes: 'Sí, es imposible',
+  impossible_confirm_cancel: 'Seguir intentando',
 
   // Solution viewer
   solution_title: 'Solución Oficial',
