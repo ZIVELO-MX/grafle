@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Graph from './Graph'
+import { useT } from '../i18n'
 import type { GameState, Puzzle } from '../types'
 
 interface Props {
@@ -39,14 +40,15 @@ function buildDisplayState(solution: number[], stepIndex: number, puzzle: Puzzle
 }
 
 export default function SolutionViewer({ puzzle, darkMode }: Props) {
+  const t = useT()
   const solution = puzzle.officialSolution ?? []
   const [stepIndex, setStepIndex] = useState(0)
 
   if (solution.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center p-8">
-        <p className="text-sm text-slate-400 dark:text-slate-500 text-center">
-          No official solution available for this puzzle.
+        <p className="text-sm text-slate-500 dark:text-slate-400 text-center font-medium">
+          😂 {t.lost_but_was_impossible}
         </p>
       </div>
     )
