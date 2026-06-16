@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Header from './components/Header'
 import PuzzleNav from './components/PuzzleNav'
 import Graph from './components/Graph'
+import StartScreen from './components/StartScreen'
 import ImpossibleButton from './components/ImpossibleButton'
 import LivesDisplay from './components/LivesDisplay'
 
@@ -65,6 +66,8 @@ export default function App() {
   const isToday = puzzleNumber === todayNumber
   const hasStarted = useRef(false)
 
+  const SKIP_START = import.meta.env.VITE_SKIP_START_SCREEN === 'true'
+
   const puzzleEntry = isToday
     ? { puzzle: getPuzzleForDate(), date: new Date() }
     : getPuzzleByNumber(puzzleNumber) ?? { puzzle: getPuzzleForDate(), date: new Date() }
@@ -84,13 +87,12 @@ export default function App() {
     console.log(`[puzzle #${puzzleNumber}] id=${puzzle.id} diff=${puzzle.difficulty} solvable=${puzzle.solvable} verts=${JSON.stringify(puzzle.vertices)} edges=${JSON.stringify(puzzle.edges)}`)
   }, [puzzleNumber, puzzle])
 
-  // Auto-start: skip the start screen entirely
   useEffect(() => {
-    if (state.status === 'not-started' && !hasStarted.current) {
+    if (SKIP_START && state.status === 'not-started' && !hasStarted.current) {
       hasStarted.current = true
       setTimeout(() => handleStart(), 50)
     }
-  }, [state.status, handleStart])
+  }, [state.status, handleStart, SKIP_START])
 
   useEffect(() => {
     hasStarted.current = false
@@ -191,7 +193,14 @@ export default function App() {
         {/* Graph area */}
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-2 min-h-0">
           <div className="w-full max-w-sm aspect-square bg-white dark:bg-slate-800 rounded-3xl shadow-sm p-2">
-            {!isToday && isPastCompleted ? (
+            {state.status === 'not-started' && !SKIP_START && !isPastCompleted ? (
+              <StartScreen
+                puzzleNumber={puzzleNumber}
+                difficulty={puzzle.difficulty}
+                onStart={handleStart}
+                isPast={!isToday}
+              />
+            ) : !isToday && isPastCompleted ? (
               <Graph
                 puzzle={puzzle}
                 state={displayState!}
