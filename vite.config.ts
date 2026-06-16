@@ -64,9 +64,5 @@ export default defineConfig(({ mode }) => {
         },
       }),
     ],
-    define: {
-      // Makes import.meta.env.VITE_APP_URL available in TS/TSX with the resolved value
-      'import.meta.env.VITE_APP_URL': JSON.stringify(appUrl),
-    },
   }
 })
