@@ -27,6 +27,7 @@ function edgeColor(used: boolean, won: boolean, dark: boolean, accent?: string):
 function wonBg(dark: boolean, accent?: string): string {
   if (accent === '#166534') return dark ? '#14532d' : '#f0fdf4'
   if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fef2f2'
+  if (accent === '#7c3aed') return dark ? '#3b0764' : '#faf5ff'
   return dark ? '#14532d' : '#f0fdf4'
 }
 
@@ -37,66 +38,77 @@ function wonStroke(accent?: string): string {
 function snapFill(dark: boolean, accent?: string): string {
   if (accent === '#166534') return dark ? '#166534' : '#dcfce7'
   if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fef2f2'
+  if (accent === '#7c3aed') return dark ? '#4c1d95' : '#f3e8ff'
   return dark ? '#166534' : '#dcfce7'
 }
 
 function snapStroke(dark: boolean, accent?: string): string {
   if (accent === '#166534') return dark ? '#4ade80' : '#16a34a'
   if (accent === '#dc2626') return dark ? '#fca5a5' : '#dc2626'
+  if (accent === '#7c3aed') return dark ? '#c084fc' : '#7c3aed'
   return dark ? '#4ade80' : '#16a34a'
 }
 
 function reachableFill(dark: boolean, accent?: string): string {
   if (accent === '#166534') return dark ? '#14532d' : '#86efac'
   if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fca5a5'
+  if (accent === '#7c3aed') return dark ? '#3b0764' : '#d8b4fe'
   return dark ? '#14532d' : '#86efac'
 }
 
 function reachableRingFill(dark: boolean, accent?: string): string {
   if (accent === '#166534') return dark ? '#166534' : '#dcfce7'
   if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fef2f2'
+  if (accent === '#7c3aed') return dark ? '#4c1d95' : '#f3e8ff'
   return dark ? '#166534' : '#dcfce7'
 }
 
 function dragColor(dark: boolean, accent?: string): string {
   if (accent === '#166534') return dark ? '#4ade80' : '#16a34a'
   if (accent === '#dc2626') return dark ? '#fca5a5' : '#dc2626'
+  if (accent === '#7c3aed') return dark ? '#c084fc' : '#7c3aed'
   return dark ? '#4ade80' : '#16a34a'
 }
 
 function idleNodeFill(dark: boolean, accent?: string): string {
   if (accent === '#166534') return dark ? '#14532d' : '#f0fdf4'
   if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fef2f2'
+  if (accent === '#7c3aed') return dark ? '#3b0764' : '#faf5ff'
   return dark ? '#1e293b' : '#ffffff'
 }
 
 function idleNodeStroke(dark: boolean, accent?: string): string {
   if (accent === '#166534') return dark ? '#4ade80' : '#86efac'
   if (accent === '#dc2626') return dark ? '#fca5a5' : '#fca5a5'
+  if (accent === '#7c3aed') return dark ? '#c084fc' : '#d8b4fe'
   return dark ? '#4b5563' : '#9ca3af'
 }
 
 function activeNodeFill(dark: boolean, accent?: string): string {
   if (accent === '#166534') return dark ? '#166534' : '#dcfce7'
   if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fee2e2'
+  if (accent === '#7c3aed') return dark ? '#4c1d95' : '#f3e8ff'
   return dark ? '#1e3a8a' : '#eff6ff'
 }
 
 function activeNodeStroke(accent?: string): string {
   if (accent === '#166534') return '#16a34a'
   if (accent === '#dc2626') return '#dc2626'
+  if (accent === '#7c3aed') return '#7c3aed'
   return '#2563eb'
 }
 
 function pathNodeFill(dark: boolean, accent?: string): string {
   if (accent === '#166534') return dark ? '#14532d' : '#bbf7d0'
   if (accent === '#dc2626') return dark ? '#7f1d1d' : '#fecaca'
+  if (accent === '#7c3aed') return dark ? '#3b0764' : '#e9d5ff'
   return dark ? '#1c3a5c' : '#f0f9ff'
 }
 
 function pathNodeStroke(accent?: string): string {
   if (accent === '#166534') return '#4ade80'
   if (accent === '#dc2626') return '#f87171'
+  if (accent === '#7c3aed') return '#a855f7'
   return '#60a5fa'
 }
 
