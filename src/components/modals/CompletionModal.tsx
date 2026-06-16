@@ -27,7 +27,7 @@ export default function CompletionModal({
   const t = useT()
   const [copied, setCopied] = useState(false)
 
-  const shareText = generateShareText(puzzleNumber, score, elapsedSeconds, puzzle.difficulty)
+  const shareText = generateShareText(puzzleNumber, score, elapsedSeconds, puzzle.difficulty, t)
 
   const handleCopy = async () => {
     try {
