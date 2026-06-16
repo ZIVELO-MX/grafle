@@ -238,9 +238,7 @@ export default function App() {
           <div className="text-center px-4 py-2 min-h-[2rem]">
             {state.lostByImpossible ? (
               <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{t.lost_by_impossible}</p>
-            ) : !puzzle.solvable ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">😂 {t.lost_but_was_impossible}</p>
-            ) : (
+            ) : !puzzle.solvable ? null : (
               <p className="text-xs text-rose-500 font-medium">{t.game_over}</p>
             )}
           </div>
