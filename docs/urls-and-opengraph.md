@@ -10,29 +10,33 @@ Todos los lugares que necesitan la URL de la app (OG tags, share text, workbox c
 
 | Prioridad | Fuente | Cuándo aplica |
 |---|---|---|
-| 1 | `VITE_APP_URL` en archivos `.env` | Valor explícito — máxima prioridad |
-| 2 | `VERCEL_PROJECT_PRODUCTION_URL` | Injected por Vercel — alias estable de producción |
-| 3 | `VERCEL_URL` | Injected por Vercel — URL única por deployment (preview builds) |
-| 4 | `http://localhost:5173` | Fallback local cuando ninguno está disponible |
+| 1 | `VITE_APP_URL` | Override explícito — setear en Vercel dashboard, **no** en `.env.production` |
+| 2 | `VERCEL_PROJECT_PRODUCTION_URL` | Solo en `VERCEL_ENV === 'production'` — alias estable del proyecto |
+| 3 | `VERCEL_URL` | Preview deploys y production deploys cuando no hay alias configurado |
+| 4 | `http://localhost:5173` | Fallback local |
 
-**¿Cómo lo usa Vercel?**
+**Por qué NO poner `VITE_APP_URL` en `.env.production`:**
 
-Vercel inyecta automáticamente estas variables de entorno en cada build:
+`VERCEL_PROJECT_PRODUCTION_URL` está disponible en **todos** los environments de Vercel (producción Y preview). Si pones `VITE_APP_URL` en `.env.production`, ese archivo se incluye en el build y pisa el `VERCEL_URL` del preview deploy — todos los previews reportan la URL de producción en el share text. La variable se leyó como `grafle.vercel.app` aunque el preview era `grafle-git-feature-opengraph-...vercel.app`.
 
-- `VERCEL_URL` — hostname del deployment actual (ej. `grafle-abc123.vercel.app`). Cambia con cada deploy.
-- `VERCEL_PROJECT_PRODUCTION_URL` — alias de producción del proyecto (ej. `grafle.vercel.app`). Estable.
+La solución: `VERCEL_PROJECT_PRODUCTION_URL` solo se usa cuando `VERCEL_ENV === 'production'`. Para previews siempre cae a `VERCEL_URL`.
+
+**Variables que inyecta Vercel en cada build:**
+
+- `VERCEL_URL` — hostname del deployment actual. Único por deploy, nunca es un alias.
+- `VERCEL_PROJECT_PRODUCTION_URL` — alias estable del proyecto. Disponible en todos los envs.
 - `VERCEL_ENV` — `production`, `preview`, o `development`.
 
-No necesitan el prefijo `VITE_` porque se leen en `vite.config.ts` (Node.js), no en el cliente.
+No necesitan prefijo `VITE_` porque se leen en `vite.config.ts` (Node.js), no en el cliente.
 
 **Para cambiar el dominio (cuando salga el dominio final):**
 
-Opción A — cambiar `.env.production` y committearlo:
+Setear `VITE_APP_URL` en Vercel dashboard → Settings → Environment Variables, scoped a **Production only**:
 ```
-VITE_APP_URL=https://grafle.com
+VITE_APP_URL = https://grafle.com
 ```
 
-Opción B — setear `VITE_APP_URL` en el dashboard de Vercel (Settings → Environment Variables). Toma precedencia sobre `.env.production`.
+Los preview deploys seguirán usando su `VERCEL_URL` automáticamente.
 
 ### Cómo llega al código
 

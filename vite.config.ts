@@ -7,14 +7,17 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
 
   // Canonical URL resolution order:
-  // 1. VITE_APP_URL in .env files — explicit, highest priority
-  // 2. VERCEL_PROJECT_PRODUCTION_URL — stable alias injected by Vercel (prod only)
-  // 3. VERCEL_URL — per-deployment URL injected by Vercel (preview builds)
-  // 4. localhost fallback for local dev with no .env.development
+  // 1. VITE_APP_URL — explicit override (set in Vercel dashboard scoped to Production,
+  //    or in .env.local for personal overrides). Never hardcode in .env.production.
+  // 2. VERCEL_PROJECT_PRODUCTION_URL — stable prod alias, but ONLY on production env.
+  //    IMPORTANT: Vercel exposes this in preview envs too, so we gate on VERCEL_ENV.
+  // 3. VERCEL_URL — per-deployment URL. Correct for previews and local Vercel CLI.
+  // 4. localhost fallback for local dev with no .env.development.
   // See docs/urls-and-opengraph.md for full reference.
+  const isVercelProd = process.env.VERCEL_ENV === 'production'
   const appUrl =
     env.VITE_APP_URL ||
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    (isVercelProd && process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
