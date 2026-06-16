@@ -34,6 +34,7 @@ function buildDisplayState(solution: number[], stepIndex: number, puzzle: Puzzle
     invalidVertexId: null,
     stuckVertexId: null,
     livesRemaining: 0,
+    lostByImpossible: false,
   }
 }
 

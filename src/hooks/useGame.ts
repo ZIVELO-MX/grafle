@@ -18,6 +18,7 @@ function initialState(): GameState {
     invalidVertexId: null,
     stuckVertexId: null,
     livesRemaining: MAX_LIVES,
+    lostByImpossible: false,
   }
 }
 
@@ -244,9 +245,31 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
         return prev
 
       if (puzzle.solvable) {
-        return { ...prev, status: 'impossible-wrong', attempts: prev.attempts + 1 }
+        // Wrong call — lose all remaining lives instantly
+        const now = Date.now()
+        if (isToday) {
+          const elapsed = prev.startTime ? Math.floor((now - prev.startTime) / 1000) : 0
+          const today = new Date().toISOString().slice(0, 10)
+          recordResult({
+            puzzleId: puzzle.id,
+            date: today,
+            won: false,
+            score: 0,
+            time: elapsed,
+            usedImpossible: true,
+            livesLost: MAX_LIVES,
+          })
+        }
+        return {
+          ...prev,
+          livesRemaining: 0,
+          status: 'lost',
+          endTime: now,
+          lostByImpossible: true,
+        }
       }
 
+      // Correct — the puzzle is indeed impossible
       const endTime = Date.now()
       if (isToday) {
         const elapsed = prev.startTime ? Math.floor((endTime - prev.startTime) / 1000) : 0
@@ -270,14 +293,6 @@ export function useGame(puzzle: Puzzle, puzzleNumber: number, isToday: boolean) 
         startTime: prev.startTime ?? endTime,
       }
     })
-
-    if (puzzle.solvable) {
-      setTimeout(() => {
-        setState((prev) =>
-          prev.status === 'impossible-wrong' ? { ...prev, status: 'playing' } : prev
-        )
-      }, 2000)
-    }
   }, [puzzle, isToday])
 
   const restart = useCallback(() => {

@@ -36,17 +36,16 @@ New special days are added by extending `SPECIAL_PUZZLES` in `scripts/generatePu
 
 ---
 
-## 0.2. Impossible Button — Confirmation + Penalty
+## ✅ 0.2. Impossible Button — Confirmation + Penalty
 
-**Status:** Planned
+**Status:** Shipped — June 2026
 
-Improve the UX and stakes of the "Impossible" button to make it a meaningful risk:
+Pressing "Impossible" is now a high-stakes decision:
 
-- **Confirmation dialog**: pressing "Impossible" shows a modal asking the player to confirm. This prevents accidental presses and makes the decision feel deliberate.
-- **All-lives penalty**: if the player confirms and the puzzle is actually solvable, they lose all remaining lives at once (instant game over). This makes the Impossible button a high-risk call, not a free guess.
-- **Ran-out-of-lives + was impossible**: if a player loses all their lives through normal attempts and the puzzle turns out to be impossible, show a 😂 emoji with a message indicating the puzzle was in fact impossible (e.g. "That one was impossible — you couldn't have solved it!"). This rewards players who suspected it but ran out of lives trying.
-
-The current `ImpossibleButton` component and `handleImpossible` hook logic are the entry points for this change.
+- **Confirmation modal**: clicking "Impossible" opens a warning modal before committing. Prevents accidental taps.
+- **All-lives penalty**: confirming on a solvable puzzle drains all remaining lives instantly → instant game over with an amber "Wrong — this puzzle IS solvable." message.
+- **😂 reveal**: losing all lives through normal play on a truly impossible puzzle shows the 😂 emoji with "That one was actually impossible." — rewarding players who suspected it.
+- Correct impossible call still works as before → `impossible-correct` win state.
 
 ---
 
@@ -124,9 +123,9 @@ Puzzles where the graph changes during gameplay:
 
 ## 7. Streak Sharing & Social
 
-- Daily share cards with puzzle artwork
-- Twitter/X card preview
-- Open Graph meta tags for link previews
+- Daily share cards with puzzle artwork ✅ (share text with score, time, URL)
+- Twitter/X card preview ✅ (OpenGraph + Twitter Card meta tags)
+- Open Graph meta tags for link previews ✅ (dynamic URL via Vercel env vars)
 
 ---
 

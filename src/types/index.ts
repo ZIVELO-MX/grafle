@@ -46,6 +46,7 @@ export interface GameState {
   invalidVertexId: number | null
   stuckVertexId: number | null
   livesRemaining: number
+  lostByImpossible: boolean
 }
 
 export interface PlayerStats {
@@ -82,4 +83,4 @@ export interface Settings {
   darkMode: boolean
 }
 
-export type ModalId = 'help' | 'settings' | 'menu' | 'completion' | 'stats' | 'rankings' | null
+export type ModalId = 'help' | 'settings' | 'menu' | 'completion' | 'stats' | 'rankings' | 'impossible-confirm' | null
